@@ -111,3 +111,7 @@ async function kursDeaktivieren(kursId) {
 async function heuteLaden() {
   return apiAufruf('today');
 }
+
+async function mailSenden() {
+  return apiAufruf('mailNow');
+}

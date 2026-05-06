@@ -137,7 +137,12 @@ async function zeigeHeute(container) {
     return;
   }
 
-  renderHeute(container, ergebnis.daten, () => zeigeListe(container));
+  renderHeute(container, ergebnis.daten, () => zeigeListe(container), async (onErfolg, onFehler) => {
+    const res = await mailSenden();
+    if (res.ok) onErfolg();
+    else if (res.nichtAutorisiert) zeigeLogin(container);
+    else onFehler(res.fehler);
+  });
 }
 
 // ── Deaktivieren mit Bestätigung ───────────────────────────────────────────────

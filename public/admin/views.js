@@ -404,7 +404,7 @@ function renderQrCode(container, kursId, kursName, onZurueck) {
 
 // ── Heute-Dashboard-View ──────────────────────────────────────────────────────
 
-function renderHeute(container, daten, onZurueck) {
+function renderHeute(container, daten, onZurueck, onMail) {
   const eintraege = daten?.eintraege || [];
   const datum     = daten?.datum || '—';
 
@@ -429,6 +429,7 @@ function renderHeute(container, daten, onZurueck) {
         <div class="seite-kopf-aktionen">
           <button class="btn btn-ghost" id="btn-zurueck" type="button">← Zurück</button>
           <button class="btn btn-sekundaer" id="btn-aktualisieren" type="button">↻ Aktualisieren</button>
+          <button class="btn btn-primär" id="btn-mail" type="button">CSV per E-Mail senden</button>
         </div>
       </div>
 
@@ -474,8 +475,24 @@ function renderHeute(container, daten, onZurueck) {
 
   container.querySelector('#btn-zurueck').addEventListener('click', onZurueck);
   container.querySelector('#btn-aktualisieren').addEventListener('click', () => {
-    // app.js lauscht auf dieses Event
     container.dispatchEvent(new CustomEvent('heute-aktualisieren', { bubbles: true }));
+  });
+
+  const btnMail = container.querySelector('#btn-mail');
+  btnMail.addEventListener('click', async () => {
+    btnMail.disabled = true;
+    btnMail.textContent = 'Wird gesendet …';
+    await onMail(
+      () => {
+        btnMail.textContent = '✓ Mail gesendet';
+        setTimeout(() => { btnMail.disabled = false; btnMail.textContent = 'CSV per E-Mail senden'; }, 3000);
+      },
+      (fehler) => {
+        btnMail.disabled = false;
+        btnMail.textContent = 'CSV per E-Mail senden';
+        alert('Fehler: ' + fehler);
+      }
+    );
   });
 }
 

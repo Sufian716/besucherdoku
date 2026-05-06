@@ -149,6 +149,7 @@ function handleCourseAction(body) {
     case 'update':     return actionUpdate(ss, body);
     case 'deactivate': return actionDeactivate(ss, body);
     case 'today':      return actionToday(ss);
+    case 'mailNow':    taeglicheCSVMail(); return json({ ok: true, nachricht: 'Mail gesendet.' });
     default:           return json({ ok: false, fehler: 'Unbekannte Aktion: ' + body.action });
   }
 }
