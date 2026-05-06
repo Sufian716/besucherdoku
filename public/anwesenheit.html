@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anwesenheit eintragen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <script src="/config.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --akzent:       #006B5F;
+      --akzent-dunkel: #004D45;
+      --grau-50:      #FAFAF9;
+      --grau-100:     #F5F5F4;
+      --grau-200:     #E8E6E3;
+      --grau-400:     #A8A29E;
+      --grau-600:     #6B6560;
+      --grau-900:     #1C1917;
+      --rot:          #B91C1C;
+      --gruen:        #15803D;
+    }
+
+    body {
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      background: var(--grau-100);
+      color: var(--grau-900);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    .kopf {
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 1.5rem;
+    }
+
+    .marke {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--akzent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .karte {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid var(--grau-200);
+      padding: 2rem 1.5rem;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .kurs-info {
+      background: var(--grau-50);
+      border: 1px solid var(--grau-200);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .kurs-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--grau-600);
+      margin-bottom: 0.25rem;
+    }
+
+    .kurs-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--grau-900);
+    }
+
+    .kurs-id {
+      font-size: 0.8125rem;
+      color: var(--grau-600);
+      margin-top: 0.125rem;
+    }
+
+    h1 {
+      font-size: 1.375rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+    }
+
+    .feld-gruppe {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      margin-bottom: 0.375rem;
+    }
+
+    .pflicht {
+      color: var(--rot);
+      margin-left: 0.15em;
+    }
+
+    input[type="text"] {
+      display: block;
+      width: 100%;
+      padding: 0.8125rem 1rem;
+      font-family: inherit;
+      font-size: 1.0625rem;
+      border: 2px solid var(--grau-200);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--grau-900);
+      transition: border-color 0.15s;
+      /* Mindest-Touch-Target-Höhe 44px ist gewährleistet */
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--akzent);
+      box-shadow: 0 0 0 3px rgba(0,107,95,0.15);
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--grau-400);
+    }
+
+    .hinweis {
+      font-size: 0.8125rem;
+      color: var(--grau-600);
+      margin-top: 0.375rem;
+    }
+
+    button[type="submit"] {
+      display: block;
+      width: 100%;
+      padding: 1rem 1.5rem;
+      margin-top: 1.75rem;
+      background: var(--akzent);
+      color: #fff;
+      font-family: inherit;
+      font-size: 1.0625rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      min-height: 52px; /* Touch-Target */
+      transition: background 0.15s;
+    }
+
+    button[type="submit"]:hover:not(:disabled) { background: var(--akzent-dunkel); }
+
+    button[type="submit"]:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    button[type="submit"]:focus-visible {
+      outline: 3px solid var(--akzent);
+      outline-offset: 2px;
+    }
+
+    /* Meldungen */
+    .meldung {
+      display: none;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      margin-top: 1.25rem;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+    }
+
+    .meldung.erfolg {
+      display: block;
+      background: #DCFCE7;
+      border: 1px solid #86EFAC;
+      color: var(--gruen);
+    }
+
+    .meldung.fehler {
+      display: block;
+      background: #FEE2E2;
+      border: 1px solid #FCA5A5;
+      color: var(--rot);
+    }
+
+    .meldung.warnung {
+      display: block;
+      background: #FEF9C3;
+      border: 1px solid #FDE047;
+      color: #854D0E;
+    }
+
+    .meldung-titel {
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    /* Kein Kurs: Fehlerzustand */
+    .kein-kurs {
+      text-align: center;
+      padding: 2rem 0;
+    }
+
+    .kein-kurs p {
+      color: var(--grau-600);
+      margin-top: 0.75rem;
+    }
+
+    /* Datumausgabe */
+    .datum-anzeige {
+      font-size: 0.875rem;
+      color: var(--grau-600);
+      text-align: right;
+      margin-bottom: 1rem;
+    }
+
+    @media (min-width: 520px) {
+      .karte { padding: 2.5rem 2rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="kopf">
+    <span class="marke" id="markenname"></span>
+  </div>
+
+  <main class="karte" id="hauptbereich">
+    <!-- Wird per JS befüllt -->
+  </main>
+
+  <script>
+    // ── Initialisierung ──────────────────────────────────────────────────────
+
+    const marke = window.BRAND_NAME || 'Bildungsträger';
+    document.getElementById('markenname').textContent = marke;
+
+    // URL-Parameter lesen
+    const params  = new URLSearchParams(window.location.search);
+    const kursId  = (params.get('kurs') || '').trim();
+    const kursName = (params.get('name') || '').trim();
+
+    const hauptbereich = document.getElementById('hauptbereich');
+
+    // Kein Kurs in der URL → Fehlerzustand zeigen
+    if (!kursId) {
+      hauptbereich.innerHTML = `
+        <div class="kein-kurs">
+          <p class="kurs-label">Fehler</p>
+          <h1>Kein Kurs gefunden</h1>
+          <p>Dieser Link enthält keine Kurs-Informationen.<br>
+             Bitte scannen Sie den QR-Code im Kursraum.</p>
+        </div>`;
+      document.title = 'Kein Kurs gefunden';
+    } else {
+      renderFormular();
+    }
+
+    // ── HTML escapen (verhindert XSS bei Nutzereingaben in innerHTML) ────────
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ── Datum im deutschen Format ────────────────────────────────────────────
+    function heuteDatum() {
+      return new Date().toLocaleDateString('de-DE', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      });
+    }
+
+    // ── Duplikat-Schutz via localStorage ────────────────────────────────────
+    // Schlüssel: tn_<kursId>_<ISO-Datum>. Schreibt nach erfolgreichem Submit.
+    function duplikatSchluessel() {
+      const heute = new Date().toISOString().substring(0, 10); // YYYY-MM-DD
+      return `tn_${kursId}_${heute}`;
+    }
+
+    function bereitsEingetragen() {
+      return !!localStorage.getItem(duplikatSchluessel());
+    }
+
+    function eintragenMarkieren() {
+      localStorage.setItem(duplikatSchluessel(), '1');
+    }
+
+    // ── Formular rendern ─────────────────────────────────────────────────────
+    function renderFormular() {
+      document.title = `Anwesenheit – ${kursName || kursId}`;
+
+      hauptbereich.innerHTML = `
+        <div class="kurs-info" aria-label="Kursinformationen">
+          <p class="kurs-label">Kurs</p>
+          <p class="kurs-name" id="anzeige-kursname">${esc(kursName || kursId)}</p>
+          <p class="kurs-id">ID: ${esc(kursId)}</p>
+        </div>
+
+        <p class="datum-anzeige" id="datum-anzeige" aria-live="polite"></p>
+
+        <h1>Anwesenheit eintragen</h1>
+
+        <form id="checkin-form" novalidate>
+          <div class="feld-gruppe">
+            <label for="tn-id">Teilnehmer-ID <span class="pflicht" aria-label="Pflichtfeld">*</span></label>
+            <input
+              type="text"
+              id="tn-id"
+              name="tnId"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              inputmode="text"
+              placeholder="z.&thinsp;B. 12345 oder TN-001"
+              maxlength="50"
+              required
+              aria-required="true"
+              aria-describedby="tn-id-hinweis"
+            >
+            <p class="hinweis" id="tn-id-hinweis">Ihre TN-ID finden Sie auf dem Zulassungsschreiben oder der Einladung.</p>
+          </div>
+
+          <div class="feld-gruppe">
+            <label for="tn-name">Ihr Name <span style="font-weight:400;color:var(--grau-600)">(optional)</span></label>
+            <input
+              type="text"
+              id="tn-name"
+              name="tnName"
+              autocomplete="name"
+              placeholder="Vorname Nachname"
+              maxlength="100"
+              aria-describedby="tn-name-hinweis"
+            >
+            <p class="hinweis" id="tn-name-hinweis">Wird zusammen mit der TN-ID gespeichert.</p>
+          </div>
+
+          <button type="submit" id="abschicken-btn">Anwesenheit bestätigen</button>
+        </form>
+
+        <div class="meldung" id="meldung" role="alert" aria-live="assertive"></div>
+      `;
+
+      document.getElementById('datum-anzeige').textContent = heuteDatum();
+
+      // Bereits heute eingetragen?
+      if (bereitsEingetragen()) {
+        zeigeWarnungDuplikat();
+      }
+
+      document.getElementById('checkin-form').addEventListener('submit', handleSubmit);
+    }
+
+    // ── Submit-Handler ───────────────────────────────────────────────────────
+    async function handleSubmit(e) {
+      e.preventDefault();
+
+      const tnId   = document.getElementById('tn-id').value.trim();
+      const tnName = document.getElementById('tn-name').value.trim();
+      const btn    = document.getElementById('abschicken-btn');
+
+      // Client-seitige Pflichtfeld-Validierung
+      if (!tnId) {
+        zeigeFehler('Bitte geben Sie Ihre Teilnehmer-ID ein.');
+        document.getElementById('tn-id').focus();
+        return;
+      }
+
+      if (!/^[A-Za-z0-9\-_]{1,50}$/.test(tnId)) {
+        zeigeFehler('Die Teilnehmer-ID darf nur Buchstaben, Zahlen, Bindestriche und Unterstriche enthalten.');
+        document.getElementById('tn-id').focus();
+        return;
+      }
+
+      // Button deaktivieren (Doppel-Submit-Schutz während des Requests)
+      btn.disabled = true;
+      btn.textContent = 'Wird eingetragen …';
+
+      const webhookUrl = window.WEBHOOK_CHECKIN_URL;
+      if (!webhookUrl || webhookUrl.includes('IHRE-N8N-DOMAIN')) {
+        zeigeFehler('Konfigurationsfehler: Webhook-URL nicht gesetzt. Bitte Verwaltung informieren.');
+        btn.disabled = false;
+        btn.textContent = 'Anwesenheit bestätigen';
+        return;
+      }
+
+      try {
+        const antwort = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            checkinKey: window.CHECKIN_KEY || '',
+            tnId,
+            tnName,
+            kursId
+          })
+        });
+
+        const daten = await antwort.json().catch(() => ({}));
+
+        if (antwort.ok && daten.ok !== false) {
+          eintragenMarkieren();
+          zeigeErfolg(tnName || tnId);
+          document.getElementById('checkin-form').style.display = 'none';
+        } else {
+          const meldung = daten.fehler || `Fehler vom Server (${antwort.status}).`;
+          zeigeFehler(meldung);
+          btn.disabled = false;
+          btn.textContent = 'Anwesenheit bestätigen';
+        }
+      } catch (err) {
+        zeigeFehler('Keine Verbindung zum Server. Bitte Internetverbindung prüfen und erneut versuchen.');
+        btn.disabled = false;
+        btn.textContent = 'Anwesenheit bestätigen';
+      }
+    }
+
+    // ── Meldungs-Hilfsfunktionen ─────────────────────────────────────────────
+    function zeigeMeldung(klasse, titel, text) {
+      const el = document.getElementById('meldung');
+      if (!el) return;
+      el.className = `meldung ${klasse}`;
+      el.innerHTML = `<p class="meldung-titel">${esc(titel)}</p><p>${esc(text)}</p>`;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function zeigeErfolg(name) {
+      zeigeMeldung(
+        'erfolg',
+        'Anwesenheit erfasst!',
+        `Danke${name ? ', ' + name : ''}. Ihre Anwesenheit wurde für heute eingetragen.`
+      );
+    }
+
+    function zeigeFehler(text) {
+      zeigeMeldung('fehler', 'Fehler', text);
+    }
+
+    function zeigeWarnungDuplikat() {
+      zeigeMeldung(
+        'warnung',
+        'Bereits eingetragen',
+        'Sie haben sich heute für diesen Kurs bereits angemeldet. Ein zweiter Eintrag ist nicht möglich.'
+      );
+      const btn = document.getElementById('abschicken-btn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Bereits eingetragen';
+      }
+    }
+  </script>
+</body>
+</html>

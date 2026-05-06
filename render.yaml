@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: anwesenheit-mvp
+    runtime: static
+
+    # Statische Dateien aus ./public ausliefern
+    staticPublishPath: ./public
+
+    # Keine Build-Schritte – reines HTML/CSS/JS
+    buildCommand: ""
+
+    headers:
+      # Sicherheits-Header für alle Seiten
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+
+      # Strengere CSP für den Admin-Bereich
+      # Erlaubt: eigener Origin, Google Fonts, cdnjs (qrcode.js), n8n-Webhook-Domain
+      # ANPASSEN: IHRE-N8N-DOMAIN durch die echte n8n-Domain ersetzen
+      - path: /admin/*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; style-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; connect-src 'self' https://IHRE-N8N-DOMAIN; img-src 'self' data:; frame-ancestors 'none'"
+      - path: /admin/*
+        name: X-Frame-Options
+        value: DENY
+      - path: /admin/*
+        name: Cache-Control
+        value: no-store
+
+    routes:
+      # /anwesenheit → /anwesenheit.html
+      - type: rewrite
+        source: /anwesenheit
+        destination: /anwesenheit.html
+
+      # /admin → /admin/index.html (ohne trailing slash)
+      - type: rewrite
+        source: /admin
+        destination: /admin/index.html
+
+      # /admin/ → /admin/index.html (mit trailing slash)
+      - type: rewrite
+        source: /admin/
+        destination: /admin/index.html
+
+      # Fallback: alle nicht gefundenen Routen → 404-Seite
+      # (Render liefert automatisch eine 404 wenn keine Route passt)

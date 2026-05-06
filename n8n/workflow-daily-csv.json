@@ -1,0 +1,133 @@
+{
+  "name": "Tägliche CSV-Mail",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 18,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "c3d4e5f6-0003-0003-0003-000000000001",
+      "name": "Täglich 18:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "readRows",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.SPREADSHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Anwesenheit",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "c3d4e5f6-0003-0003-0003-000000000002",
+      "name": "Anwesenheit lesen",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [460, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CREDENTIAL_ID_HIER_ERSETZEN",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nur heutige Einträge filtern und CSV erzeugen\n// Format: Semikolon, UTF-8 mit BOM, CRLF — deutsches Standardformat für Excel-Kompatibilität\n\nconst heute = new Date().toLocaleDateString('de-DE', {\n  timeZone: 'Europe/Berlin',\n  day: '2-digit', month: '2-digit', year: 'numeric'\n});\n\nconst alleEintraege = $input.all();\nconst heutigeEintraege = alleEintraege.filter(item => item.json['Datum'] === heute);\n\n// CSV-Kopfzeile\nconst spalten = ['TN-ID', 'Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];\n\n// Hilfsfunktion: Feld für CSV escapen\n// Enthält das Feld Semikolon, Anführungszeichen oder Zeilenumbruch → in Anführungszeichen einschließen\nfunction csvFeld(wert) {\n  const s = String(wert ?? '');\n  if (s.includes(';') || s.includes('\"') || s.includes('\\n') || s.includes('\\r')) {\n    return '\"' + s.replace(/\"/g, '\"\"') + '\"';\n  }\n  return s;\n}\n\nconst zeilen = [spalten.join(';')];\n\nfor (const item of heutigeEintraege) {\n  const zeile = spalten.map(sp => csvFeld(item.json[sp])).join(';');\n  zeilen.push(zeile);\n}\n\n// UTF-8 BOM + CRLF-Zeilenenden\nconst csvInhalt = '\\uFEFF' + zeilen.join('\\r\\n');\n\nconst dateiName = `anwesenheit_${heute.replace(/\\./g, '-')}.csv`;\n\nreturn [{\n  json: {\n    csvInhalt,\n    dateiName,\n    anzahl: heutigeEintraege.length,\n    datum: heute\n  }\n}];\n"
+      },
+      "id": "c3d4e5f6-0003-0003-0003-000000000003",
+      "name": "CSV erzeugen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// CSV als Base64-Anhang vorbereiten (n8n erwartet Binary-Daten für Mail-Anhänge)\n// Wir geben den CSV-Inhalt als binäres Item durch\nconst { csvInhalt, dateiName, anzahl, datum } = $input.first().json;\n\n// n8n's setBinaryData für den nächsten Node\nconst binaryData = Buffer.from(csvInhalt, 'utf8').toString('base64');\n\nreturn [{\n  json: {\n    dateiName,\n    anzahl,\n    datum,\n    csvBase64: binaryData,\n    betreff: `Anwesenheitsliste ${datum} – ${anzahl} Eintrag${anzahl !== 1 ? 'träge' : ''}`,\n    nachricht: `Anbei die Anwesenheitsliste vom ${datum}.\\n\\nAnzahl Einträge: ${anzahl}\\n\\nDiese E-Mail wurde automatisch generiert.`\n  },\n  binary: {\n    anhang: {\n      data: binaryData,\n      mimeType: 'text/csv',\n      fileName: dateiName\n    }\n  }\n}];\n"
+      },
+      "id": "c3d4e5f6-0003-0003-0003-000000000004",
+      "name": "Anhang vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.FROM_EMAIL }}",
+        "toEmail": "={{ $env.ADMIN_EMAIL }}",
+        "subject": "={{ $json.betreff }}",
+        "emailType": "text",
+        "message": "={{ $json.nachricht }}",
+        "options": {
+          "attachments": "anhang"
+        }
+      },
+      "id": "c3d4e5f6-0003-0003-0003-000000000005",
+      "name": "Mail versenden",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID_HIER_ERSETZEN",
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Täglich 18:00": {
+      "main": [
+        [
+          { "node": "Anwesenheit lesen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Anwesenheit lesen": {
+      "main": [
+        [
+          { "node": "CSV erzeugen", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "CSV erzeugen": {
+      "main": [
+        [
+          { "node": "Anhang vorbereiten", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Anhang vorbereiten": {
+      "main": [
+        [
+          { "node": "Mail versenden", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "versionId": "daily-csv-v1"
+}

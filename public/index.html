@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anwesenheitserfassung</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <script src="config.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --akzent: #006B5F;
+      --akzent-dunkel: #004D45;
+      --grau-100: #F5F5F4;
+      --grau-200: #E8E6E3;
+      --grau-600: #6B6560;
+      --grau-900: #1C1917;
+    }
+
+    body {
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      background: var(--grau-100);
+      color: var(--grau-900);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .karte {
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid var(--grau-200);
+      padding: 2.5rem 2rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .logo-bereich { margin-bottom: 1.5rem; }
+
+    .marke {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--akzent);
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+      color: var(--grau-900);
+    }
+
+    p {
+      color: var(--grau-600);
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 2rem;
+    }
+
+    a.btn {
+      display: block;
+      padding: 0.875rem 1.5rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      transition: background 0.15s;
+    }
+
+    a.btn-primär {
+      background: var(--akzent);
+      color: #fff;
+    }
+    a.btn-primär:hover { background: var(--akzent-dunkel); }
+
+    a.btn-sekundär {
+      background: var(--grau-100);
+      color: var(--grau-900);
+      border: 1px solid var(--grau-200);
+    }
+    a.btn-sekundär:hover { background: var(--grau-200); }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.8125rem;
+      color: var(--grau-600);
+    }
+  </style>
+</head>
+<body>
+  <div class="karte">
+    <div class="logo-bereich">
+      <span class="marke" id="markenname"></span>
+    </div>
+    <h1>Anwesenheitserfassung</h1>
+    <p>
+      Digitale Anwesenheitserfassung für Kurse und Maßnahmen.
+      Scannen Sie den QR-Code im Kursraum oder melden Sie sich hier an.
+    </p>
+    <div class="links">
+      <a href="/admin" class="btn btn-sekundär">Verwaltung / Admin-Bereich</a>
+    </div>
+  </div>
+  <footer>
+    <span id="markenname-footer"></span> &mdash; Anwesenheitserfassung
+  </footer>
+  <script>
+    const marke = window.BRAND_NAME || 'Bildungsträger';
+    document.getElementById('markenname').textContent = marke;
+    document.getElementById('markenname-footer').textContent = marke;
+  </script>
+</body>
+</html>
