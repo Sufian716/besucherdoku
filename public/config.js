@@ -3,7 +3,7 @@
 
 // Apps Script Web-App-URL (nach Deployment unter "Als Web-App bereitstellen" kopieren)
 // Format: https://script.google.com/macros/s/DEINE_DEPLOYMENT_ID/exec
-window.WEBHOOK_URL = 'https://script.google.com/macros/s/DEPLOYMENT_ID_HIER_ERSETZEN/exec';
+window.WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbw2_raAswSKhLYtijG92Os1NOaUCwXrocvQ3IEhYYqHCtU24LZEAPQnFB67D6EXMP1nRQ/exec';
 
 // Shared-Key für den Checkin-Endpunkt – muss mit der Script-Property CHECKIN_KEY übereinstimmen.
 // Diese Datei ist öffentlich. Der Key ist kein Sicherheitsmerkmal,
@@ -11,4 +11,4 @@ window.WEBHOOK_URL = 'https://script.google.com/macros/s/DEPLOYMENT_ID_HIER_ERSE
 window.CHECKIN_KEY = 'mvp-checkin-2025';
 
 // Angezeigter Name in der Oberfläche
-window.BRAND_NAME = 'Bildungsträger';
+window.BRAND_NAME = 'KiZ-Gallus e.V';

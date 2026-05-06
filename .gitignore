@@ -16,3 +16,6 @@ public/config.local.js
 
 # Logs
 *.log
+
+# clasp
+apps-script/.clasp.json
