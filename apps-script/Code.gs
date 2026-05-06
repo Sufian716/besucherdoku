@@ -23,6 +23,14 @@ function json(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// Datumswert normalisieren: Google Sheets liefert Datumszellen als Date-Objekte
+function normDatum(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'dd.MM.yyyy');
+  }
+  return String(val);
+}
+
 // Sheet-Daten als Array von Objekten (Kopfzeile = Schlüssel)
 function sheetToObjects(sheet) {
   const data = sheet.getDataRange().getValues();
@@ -223,7 +231,7 @@ function actionToday(ss) {
   const tz    = Session.getScriptTimeZone();
   const heute = Utilities.formatDate(new Date(), tz, 'dd.MM.yyyy');
   const alle  = sheetToObjects(ss.getSheetByName('Anwesenheit'));
-  const heutige = alle.filter(e => String(e['Datum']) === heute);
+  const heutige = alle.filter(e => normDatum(e['Datum']) === heute);
   return json({ ok: true, eintraege: heutige, datum: heute });
 }
 
@@ -234,7 +242,7 @@ function taeglicheCSVMail() {
   const tz    = Session.getScriptTimeZone();
   const heute = Utilities.formatDate(new Date(), tz, 'dd.MM.yyyy');
   const alle  = sheetToObjects(ss.getSheetByName('Anwesenheit'));
-  const heutige = alle.filter(e => String(e['Datum']) === heute);
+  const heutige = alle.filter(e => normDatum(e['Datum']) === heute);
 
   const spalten = ['TN-ID', 'Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
 
