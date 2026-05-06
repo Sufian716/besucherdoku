@@ -1,4 +1,4 @@
-// api.js – Alle Kommunikation mit dem n8n-Backend.
+// api.js – Alle Kommunikation mit dem Google Apps Script Backend.
 // Jede Funktion gibt { ok, daten?, fehler? } zurück.
 
 'use strict';
@@ -27,10 +27,12 @@ function tokenLoeschen() {
 }
 
 // ── Basis-Request ───────────────────────────────────────────────────────────
+// Content-Type: text/plain vermeidet den CORS-Preflight (OPTIONS-Request),
+// den Google Apps Script nicht beantwortet. Der Body ist trotzdem JSON.
 
 async function apiAufruf(action, payload = {}) {
-  const url = window.WEBHOOK_COURSES_URL;
-  if (!url || url.includes('IHRE-N8N-DOMAIN')) {
+  const url = window.WEBHOOK_URL;
+  if (!url || url.includes('DEPLOYMENT_ID_HIER_ERSETZEN')) {
     return { ok: false, fehler: 'Webhook-URL nicht konfiguriert (config.js anpassen).' };
   }
 
@@ -43,38 +45,38 @@ async function apiAufruf(action, payload = {}) {
   try {
     antwort = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ authToken: token, action, ...payload })
     });
   } catch {
     return { ok: false, fehler: 'Keine Verbindung zum Server. Internetverbindung prüfen.' };
   }
 
-  let json;
+  let data;
   try {
-    json = await antwort.json();
+    data = await antwort.json();
   } catch {
-    return { ok: false, fehler: `Server-Antwort konnte nicht gelesen werden (HTTP ${antwort.status}).` };
+    return { ok: false, fehler: 'Antwort konnte nicht gelesen werden (HTTP ' + antwort.status + ').' };
   }
 
-  if (antwort.status === 401) {
+  if (data.nichtAutorisiert) {
     tokenLoeschen();
     return { ok: false, fehler: 'Sitzung abgelaufen. Bitte erneut anmelden.', nichtAutorisiert: true };
   }
 
-  if (!antwort.ok || json.ok === false) {
-    return { ok: false, fehler: json.fehler || `Serverfehler (HTTP ${antwort.status}).` };
+  if (data.ok === false) {
+    return { ok: false, fehler: data.fehler || 'Unbekannter Serverfehler.' };
   }
 
-  return { ok: true, daten: json };
+  return { ok: true, daten: data };
 }
 
 // ── Login ───────────────────────────────────────────────────────────────────
 
 async function login(passwort) {
   const hash = await hashPasswort(passwort);
-  // Testaufruf: Kursliste laden – wenn 401, falsches Passwort
   tokenSpeichern(hash);
+  // Testaufruf: Kursliste laden – wenn 401, ist das Passwort falsch
   const ergebnis = await apiAufruf('list');
   if (!ergebnis.ok) {
     tokenLoeschen();

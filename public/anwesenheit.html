@@ -387,8 +387,8 @@
       btn.disabled = true;
       btn.textContent = 'Wird eingetragen …';
 
-      const webhookUrl = window.WEBHOOK_CHECKIN_URL;
-      if (!webhookUrl || webhookUrl.includes('IHRE-N8N-DOMAIN')) {
+      const webhookUrl = window.WEBHOOK_URL;
+      if (!webhookUrl || webhookUrl.includes('DEPLOYMENT_ID_HIER_ERSETZEN')) {
         zeigeFehler('Konfigurationsfehler: Webhook-URL nicht gesetzt. Bitte Verwaltung informieren.');
         btn.disabled = false;
         btn.textContent = 'Anwesenheit bestätigen';
@@ -396,10 +396,12 @@
       }
 
       try {
+        // Content-Type: text/plain verhindert CORS-Preflight gegen Apps Script
         const antwort = await fetch(webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
+            endpoint: 'checkin',
             checkinKey: window.CHECKIN_KEY || '',
             tnId,
             tnName,
@@ -409,7 +411,7 @@
 
         const daten = await antwort.json().catch(() => ({}));
 
-        if (antwort.ok && daten.ok !== false) {
+        if (daten.ok !== false) {
           eintragenMarkieren();
           zeigeErfolg(tnName || tnId);
           document.getElementById('checkin-form').style.display = 'none';

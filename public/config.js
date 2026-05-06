@@ -1,15 +1,13 @@
 // Zentrale Konfiguration – VOR dem Deployment anpassen.
 // Diese Datei ist öffentlich zugänglich; keine Passwörter oder Secrets hier speichern.
 
-// Webhook-URL für Anwesenheits-Checkin (aus n8n, Production-URL)
-window.WEBHOOK_CHECKIN_URL = 'https://IHRE-N8N-DOMAIN/webhook/anwesenheit-checkin';
+// Apps Script Web-App-URL (nach Deployment unter "Als Web-App bereitstellen" kopieren)
+// Format: https://script.google.com/macros/s/DEINE_DEPLOYMENT_ID/exec
+window.WEBHOOK_URL = 'https://script.google.com/macros/s/DEPLOYMENT_ID_HIER_ERSETZEN/exec';
 
-// Webhook-URL für Kurs-CRUD und Tages-Dashboard (aus n8n, Production-URL)
-window.WEBHOOK_COURSES_URL = 'https://IHRE-N8N-DOMAIN/webhook/kurse';
-
-// Shared-Key für den Checkin-Endpunkt – muss mit der n8n-Variable CHECKIN_KEY übereinstimmen.
-// Hinweis: Diese Datei ist öffentlich. Der Key ist kein Sicherheitsmerkmal,
-// sondern eine einfache Hürde gegen versehentliche oder automatisierte Anfragen.
+// Shared-Key für den Checkin-Endpunkt – muss mit der Script-Property CHECKIN_KEY übereinstimmen.
+// Diese Datei ist öffentlich. Der Key ist kein Sicherheitsmerkmal,
+// sondern eine einfache Hürde gegen versehentliche Anfragen.
 window.CHECKIN_KEY = 'mvp-checkin-2025';
 
 // Angezeigter Name in der Oberfläche

@@ -1,7 +1,7 @@
 # Anwesenheits-MVP
 
 Digitale Anwesenheitserfassung per QR-Code für Bildungsträger.  
-Technologie: statisches HTML/JS-Frontend · n8n-Workflows · Google Sheets · Render.com
+Technologie: statisches HTML/CSS/JS-Frontend · Google Apps Script · Google Sheets · Render.com
 
 ---
 
@@ -9,17 +9,19 @@ Technologie: statisches HTML/JS-Frontend · n8n-Workflows · Google Sheets · Re
 
 1. [Voraussetzungen](#1-voraussetzungen)
 2. [Google Sheet anlegen](#2-google-sheet-anlegen)
-3. [n8n aufsetzen](#3-n8n-aufsetzen)
-4. [Workflows importieren und konfigurieren](#4-workflows-importieren-und-konfigurieren)
-5. [Auth-Hash setzen](#5-auth-hash-setzen)
-6. [config.js anpassen](#6-configjs-anpassen)
-7. [Auf Render deployen](#7-auf-render-deployen)
-8. [Ersten Kurs anlegen und QR-Code drucken](#8-ersten-kurs-anlegen-und-qr-code-drucken)
-9. [End-to-End-Test](#9-end-to-end-test)
-10. [Stepnova-Import](#10-stepnova-import)
-11. [Datenschutz-Checkliste](#11-datenschutz-checkliste)
-12. [Troubleshooting](#12-troubleshooting)
-13. [Was dieser MVP bewusst NICHT macht](#13-was-dieser-mvp-bewusst-nicht-macht)
+3. [Apps Script einrichten](#3-apps-script-einrichten)
+4. [Auth-Hash berechnen](#4-auth-hash-berechnen)
+5. [Script-Properties setzen](#5-script-properties-setzen)
+6. [Web-App deployen und URL kopieren](#6-web-app-deployen-und-url-kopieren)
+7. [Tages-Mail-Trigger einrichten](#7-tages-mail-trigger-einrichten)
+8. [config.js anpassen](#8-configjs-anpassen)
+9. [Auf Render deployen](#9-auf-render-deployen)
+10. [Ersten Kurs anlegen und QR-Code drucken](#10-ersten-kurs-anlegen-und-qr-code-drucken)
+11. [End-to-End-Test](#11-end-to-end-test)
+12. [Stepnova-Import](#12-stepnova-import)
+13. [Datenschutz-Checkliste](#13-datenschutz-checkliste)
+14. [Troubleshooting](#14-troubleshooting)
+15. [Was dieser MVP bewusst NICHT macht](#15-was-dieser-mvp-bewusst-nicht-macht)
 
 ---
 
@@ -27,11 +29,11 @@ Technologie: statisches HTML/JS-Frontend · n8n-Workflows · Google Sheets · Re
 
 | Dienst | Kosten | Hinweis |
 |---|---|---|
-| Google-Konto mit Google Sheets | kostenlos | Ggf. ein dediziertes Dienst-Konto für die Organisation |
-| n8n (Cloud oder Self-hosted) | ab 0 €/Monat (Cloud-Free mit Limits) | Self-hosted auf einem VPS empfohlen für Produktionsbetrieb |
+| Google-Konto mit Google Sheets | kostenlos | Google-Konto reicht, kein Workspace nötig |
 | Render.com | kostenloser Static-Site-Plan | Ausreichend für dieses Frontend |
 | GitHub-Konto | kostenlos | Für Render-Deployment |
-| SMTP-Zugang | kostenlos via Gmail, oder Mailgun etc. | Für die tägliche CSV-Mail |
+
+Kein separater Mail-Server nötig: Apps Script nutzt das verknüpfte Google-Konto zum Versenden (bis 100 Mails/Tag im kostenlosen Plan).
 
 ---
 
@@ -39,121 +41,45 @@ Technologie: statisches HTML/JS-Frontend · n8n-Workflows · Google Sheets · Re
 
 1. Neues Google Sheets Dokument erstellen: **„Anwesenheit MVP"**
 2. **Tabellenblatt 1** umbenennen in: `Kurse`  
-   Spaltenköpfe in Zeile 1 exakt so eingeben:
+   Spaltenköpfe in Zeile 1 exakt so eingeben (Groß-/Kleinschreibung beachten):
    ```
    Kurs-ID | Name | Aktiv | Erstellt-am | Notiz
    ```
 3. **Tabellenblatt 2** anlegen, umbenennen in: `Anwesenheit`  
-   Spaltenköpfe in Zeile 1 exakt so eingeben:
+   Spaltenköpfe in Zeile 1:
    ```
    TN-ID | Name | Kurs-ID | Kurs-Name | Datum | Zeit | Timestamp
    ```
 4. Die **Spreadsheet-ID** aus der URL kopieren:  
    `https://docs.google.com/spreadsheets/d/`**`DIESE_ID_HIER`**`/edit`
 
-> **Wichtig:** Die Spaltennamen müssen exakt übereinstimmen – einschließlich Groß-/Kleinschreibung und Bindestrichen. Die n8n-Workflows referenzieren diese Namen direkt.
+> Die Spaltennamen müssen exakt übereinstimmen — das Apps Script liest sie per Kopfzeile.
 
 ---
 
-## 3. n8n aufsetzen
+## 3. Apps Script einrichten
 
-### Option A: n8n Cloud (einfacher Einstieg)
+### Option A: Direkt im Google Sheet (empfohlen)
 
-1. Account anlegen unter [n8n.io](https://n8n.io)
-2. Kostenloser Plan: 5 aktive Workflows, 2.500 Executions/Monat  
-   Für einen kleinen Träger meist ausreichend.
+1. Google Sheet öffnen → **Erweiterungen** → **Apps Script**
+2. Die Datei `Code.gs` wird automatisch angelegt
+3. Den gesamten Inhalt von `apps-script/Code.gs` aus diesem Repository hineinkopieren und speichern
 
-### Option B: Self-hosted (empfohlen für Produktion)
+### Option B: Standalone Script
 
-```bash
-# Mit Docker Compose (einfachste Methode)
-mkdir n8n-data && cd n8n-data
+1. [script.google.com](https://script.google.com) → **Neues Projekt**
+2. Inhalt von `apps-script/Code.gs` einfügen
+3. `appsscript.json` einblenden: **Projekteinstellungen** → „appsscript.json-Manifestdatei im Editor anzeigen" aktivieren  
+   Dann Inhalt von `apps-script/appsscript.json` einfügen
 
-cat > docker-compose.yml << 'EOF'
-version: '3.8'
-services:
-  n8n:
-    image: n8nio/n8n:latest
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=sicheres-passwort-hier
-      - N8N_HOST=n8n.ihre-domain.de
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=https
-      - WEBHOOK_URL=https://n8n.ihre-domain.de/
-      - GENERIC_TIMEZONE=Europe/Berlin
-    volumes:
-      - ./data:/home/node/.n8n
-EOF
-
-docker-compose up -d
-```
-
-Danach per Nginx/Caddy mit HTTPS absichern. Webhooks funktionieren nur über HTTPS zuverlässig.
-
-### Google Sheets Credential in n8n anlegen
-
-1. In n8n: **Credentials** → **Add Credential** → **Google Sheets OAuth2 API**
-2. OAuth-App in der Google Cloud Console anlegen:
-   - APIs & Services → Credentials → OAuth 2.0 Client ID
-   - Application Type: Web Application
-   - Redirect URI: `https://ihre-n8n-domain/rest/oauth2-credential/callback`
-3. Client-ID und Client-Secret in n8n eintragen, OAuth-Flow abschließen
-4. Den Credential-Namen merken: z.B. **„Google Sheets"**
+> **Option A ist einfacher**: Das Script hat dann automatisch Zugriff auf das Sheet — `SPREADSHEET_ID` kann trotzdem gesetzt werden, ist aber beim direkten Zugriff via `SpreadsheetApp.getActiveSpreadsheet()` auch weglassbar.  
+> *Wir empfehlen trotzdem, SPREADSHEET_ID zu setzen — dann funktioniert das Script auch wenn es nicht aus dem Sheet heraus geöffnet wird.*
 
 ---
 
-## 4. Workflows importieren und konfigurieren
+## 4. Auth-Hash berechnen
 
-1. In n8n: **Workflows** → **Import from File**
-2. Nacheinander importieren:
-   - `n8n/workflow-checkin.json`
-   - `n8n/workflow-courses.json`
-   - `n8n/workflow-daily-csv.json`
-
-### Nach dem Import: Credentials zuweisen
-
-In jedem Workflow alle Nodes mit Google Sheets öffnen und die Google-Sheets-Credential auswählen (die in Schritt 3 angelegte).
-
-### n8n-Umgebungsvariablen setzen
-
-In n8n: **Settings** → **Variables** (oder per `docker-compose.yml` als ENV):
-
-| Variable | Beispielwert | Beschreibung |
-|---|---|---|
-| `SPREADSHEET_ID` | `1BxiMVs0...` | ID aus der Google-Sheets-URL |
-| `AUTH_HASH` | `a3f5b2c1...` | SHA-256-Hash des Admin-Passworts (→ Schritt 5) |
-| `CHECKIN_KEY` | `mvp-checkin-2025` | Shared-Secret für Checkin-Endpunkt (beliebige Zeichenkette) |
-| `ADMIN_EMAIL` | `verwaltung@traeger.de` | Empfänger der täglichen CSV-Mail |
-| `FROM_EMAIL` | `noreply@traeger.de` | Absender der Mail |
-
-### SMTP-Credential anlegen
-
-In n8n: **Credentials** → **Add Credential** → **SMTP**  
-Dann im Workflow `workflow-daily-csv` den Mail-Node öffnen und diese Credential auswählen.
-
-### Webhook-URLs notieren
-
-Nach dem Import der Workflows diese unter **Workflow** → **Webhook-Node** → „Test URL" / „Production URL" kopieren:
-
-- Checkin-Workflow: `https://n8n.ihre-domain.de/webhook/anwesenheit-checkin`
-- Kurs-CRUD-Workflow: `https://n8n.ihre-domain.de/webhook/kurse`
-
-Diese kommen in die `config.js` (→ Schritt 6).
-
-### Workflows aktivieren
-
-Alle drei Workflows auf **Active** schalten.
-
----
-
-## 5. Auth-Hash setzen
-
-Das Admin-Passwort wird **niemals im Klartext** gespeichert. n8n speichert nur den SHA-256-Hash.
+Das Admin-Passwort wird **niemals im Klartext** gespeichert. Apps Script speichert nur den SHA-256-Hash.
 
 **Hash erzeugen** (in der Browser-Konsole oder Terminal):
 
@@ -162,72 +88,114 @@ Das Admin-Passwort wird **niemals im Klartext** gespeichert. n8n speichert nur d
 echo -n "IhrSicheresPasswort" | sha256sum
 
 # Node.js
-node -e "const c=require('crypto');console.log(c.createHash('sha256').update('IhrSicheresPasswort').digest('hex'))"
+node -e "const c=require('crypto'); console.log(c.createHash('sha256').update('IhrSicheresPasswort').digest('hex'))"
 ```
 
-Den ausgegebenen Hex-String (64 Zeichen) als `AUTH_HASH` in n8n hinterlegen.
+Den ausgegebenen Hex-String (64 Zeichen) notieren — er kommt in Schritt 5.
 
 ---
 
-## 6. config.js anpassen
+## 5. Script-Properties setzen
+
+Im Apps Script Editor: **Projekteinstellungen** → **Script-Properties** → **Script-Property hinzufügen**
+
+| Property | Beispielwert | Beschreibung |
+|---|---|---|
+| `SPREADSHEET_ID` | `1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms` | ID aus der Google-Sheets-URL |
+| `AUTH_HASH` | `a3f5b2c1...` (64 Zeichen) | SHA-256-Hash des Admin-Passworts (→ Schritt 4) |
+| `CHECKIN_KEY` | `mvp-checkin-2025` | Shared-Secret für den öffentlichen Checkin-Endpunkt |
+| `ADMIN_EMAIL` | `verwaltung@traeger.de` | Empfänger der täglichen CSV-Mail |
+
+---
+
+## 6. Web-App deployen und URL kopieren
+
+1. Im Apps Script Editor: **Bereitstellen** → **Neue Bereitstellung**
+2. Typ: **Web-App**
+3. Einstellungen:
+   - Beschreibung: `v1`
+   - **Ausführen als:** Ich (your@email.com)
+   - **Zugriff:** Jeder
+4. **Bereitstellen** klicken → Google fragt nach Berechtigungen → erlauben
+5. Die **Web-App-URL** kopieren:  
+   `https://script.google.com/macros/s/`**`LANGE_DEPLOYMENT_ID`**`/exec`
+
+Diese URL kommt in `config.js` (→ Schritt 8).
+
+> **Wichtig bei Änderungen:** Nach jeder Code-Änderung muss eine **neue Bereitstellung** erstellt werden (`Bereitstellen` → `Bereitstellungen verwalten` → Stift-Symbol → `Neue Version`). Die URL bleibt gleich.
+
+---
+
+## 7. Tages-Mail-Trigger einrichten
+
+Einmalig ausführen — danach läuft der Trigger automatisch täglich um 18:00 Uhr (Berlin):
+
+1. Im Apps Script Editor die Funktion `triggerAnlegen` auswählen
+2. ▶ **Ausführen** klicken
+3. Unter **Trigger** (Uhr-Symbol links) prüfen, ob `taeglicheCSVMail` um 18:00 Uhr eingetragen ist
+
+Alternativ manuell: **Trigger** → **+ Trigger hinzufügen** → Funktion: `taeglicheCSVMail`, Ereignistyp: Zeitgesteuert, Täglich, 18:00–19:00 Uhr.
+
+---
+
+## 8. config.js anpassen
 
 Datei `public/config.js` bearbeiten:
 
 ```js
-// Webhook-URLs aus n8n (Production-URLs nach Workflow-Aktivierung)
-window.WEBHOOK_CHECKIN_URL = 'https://n8n.ihre-domain.de/webhook/anwesenheit-checkin';
-window.WEBHOOK_COURSES_URL = 'https://n8n.ihre-domain.de/webhook/kurse';
+// Web-App-URL aus Schritt 6
+window.WEBHOOK_URL = 'https://script.google.com/macros/s/IHRE_DEPLOYMENT_ID/exec';
 
-// Muss mit der n8n-Variable CHECKIN_KEY übereinstimmen
+// Muss mit der Script-Property CHECKIN_KEY übereinstimmen
 window.CHECKIN_KEY = 'mvp-checkin-2025';
 
-// Angezeigter Name des Trägers in der Oberfläche
+// Angezeigter Name in der Oberfläche
 window.BRAND_NAME = 'Bildungsträger gGmbH';
 ```
 
+Änderungen committen und pushen — Render deployed automatisch.
+
 ---
 
-## 7. Auf Render deployen
+## 9. Auf Render deployen
 
-1. Dieses Repository auf GitHub pushen (oder forken)
+1. Dieses Repository auf GitHub liegen (✓ bereits erledigt)
 2. [render.com](https://render.com) → **New** → **Static Site**
 3. GitHub-Repo verbinden
 4. Render erkennt `render.yaml` automatisch → **Deploy**
 
 Die Website ist nach ~1 Minute unter der Render-URL erreichbar.
 
-**Eigene Domain** (optional): In Render unter **Custom Domains** eintragen und DNS-Record beim Registrar setzen.
-
 ---
 
-## 8. Ersten Kurs anlegen und QR-Code drucken
+## 10. Ersten Kurs anlegen und QR-Code drucken
 
 1. `/admin` aufrufen, Admin-Passwort eingeben
 2. **„Neuen Kurs anlegen"** klicken
-3. Name eingeben, z.B. „Deutsch A1 Montags" – die Kurs-ID wird automatisch vorgeschlagen
+3. Name eingeben — die Kurs-ID wird automatisch vorgeschlagen
 4. Speichern
 5. In der Kursliste auf **„QR-Code"** klicken
-6. **„Drucken (A4)"** → Browser-Druckdialog → als PDF speichern oder direkt drucken
+6. **„Drucken (A4)"** → Browser-Druckdialog → als PDF oder direkt drucken
 7. Ausdruck im Kursraum aufhängen
 
 ---
 
-## 9. End-to-End-Test
+## 11. End-to-End-Test
 
 1. QR-Code mit dem Smartphone scannen
 2. Testdaten eingeben: TN-ID `TEST001`, Name `Test Teilnehmer`
 3. Absenden → Erfolgsmeldung prüfen
 4. Im Admin-Bereich → **„Heute anwesend"**: Eintrag sollte erscheinen
 5. Im Google Sheet Tabellenblatt „Anwesenheit": Zeile prüfen
-6. Tägliche Mail: Im Workflow `workflow-daily-csv` → **Execute** manuell auslösen → Mail prüfen
+6. Tages-Mail testen: Im Apps Script Editor Funktion `taeglicheCSVMail` manuell ausführen → Mail prüfen
 
 ---
 
-## 10. Stepnova-Import
+## 12. Stepnova-Import
 
 ### CSV-Format
 
-Die tägliche Mail enthält eine CSV-Datei mit folgendem Format (Semikolon-getrennt, UTF-8 mit BOM, CRLF-Zeilenenden):
+Die tägliche Mail enthält eine CSV-Datei (Semikolon-getrennt, UTF-8 mit BOM, CRLF-Zeilenenden):
 
 ```
 TN-ID;Name;Kurs-ID;Kurs-Name;Datum;Zeit;Timestamp
@@ -238,81 +206,81 @@ TN-ID;Name;Kurs-ID;Kurs-Name;Datum;Zeit;Timestamp
 
 1. CSV-Datei aus der Mail herunterladen
 2. Stepnova → Modul Anwesenheiten → CSV-Import
-3. Spaltenzuordnung beim ersten Import einmalig konfigurieren und als Profil speichern
+3. Spaltenzuordnung einmalig konfigurieren und als Profil speichern
 4. Datei importieren, Vorschau prüfen, bestätigen
-
-> **Hinweis:** Stepnova-CSV-Importprofile sind einmalig anzulegen. Danach ist der Import täglich in ~2 Minuten erledigt.
 
 ### SFTP-Automatisierung (spätere Ausbaustufe)
 
-Falls Stepnova mit SFTP-Modul lizenziert ist:
-- n8n SFTP-Node statt Mail-Anhang nutzen
-- CSV täglich in das Stepnova-Import-Verzeichnis legen
-- Stepnova-SFTP-Job konfigurieren (Dokumentation beim Anbieter erfragen)
+Falls Stepnova das SFTP-Modul lizenziert hat: Apps Script kann per `UrlFetchApp` oder einem Zwischenschritt Dateien per SFTP ablegen. Aufwand: ~1 Tag Entwicklung.
 
 ---
 
-## 11. Datenschutz-Checkliste
+## 13. Datenschutz-Checkliste
 
-- [ ] **Auftragsverarbeitungsvertrag (AVV)** mit Google (Google Workspace / Google Cloud) abgeschlossen
-- [ ] **AVV** mit dem n8n-Hoster abgeschlossen (bei n8n Cloud: im Account-Bereich verfügbar)
-- [ ] **AVV** mit Render.com abgeschlossen (DPA unter render.com/privacy)
-- [ ] **Datenschutzinformation** für Teilnehmende liegt vor (was wird erfasst, wie lange gespeichert, Rechtsgrundlage)
-- [ ] **Speicherort** der Google-Sheet-Daten auf EU-Server geprüft (Google Workspace Business: EU-Datenlokalisierung buchbar)
-- [ ] **Löschkonzept**: Anwesenheitsdaten nach gesetzlicher Aufbewahrungsfrist aus dem Sheet löschen (in DE: i.d.R. nach Abschluss der Maßnahme + 10 Jahre für steuerrelevante Belege – mit Rechtsberatung klären)
-- [ ] **HTTPS** auf allen Endpunkten aktiv (Render und n8n)
+- [ ] **Auftragsverarbeitungsvertrag (AVV)** mit Google abgeschlossen (Google Workspace oder Google Cloud Console → Einstellungen → Nutzungsbedingungen für die Datenverarbeitung)
+- [ ] **AVV** mit Render.com (DPA unter render.com/privacy)
+- [ ] **Datenschutzinformation** für Teilnehmende vorhanden (was wird erfasst, wie lange gespeichert, Rechtsgrundlage)
+- [ ] Google-Sheet **nicht öffentlich** freigegeben (nur das verknüpfte Google-Konto hat Zugriff)
+- [ ] Apps Script Web-App läuft unter dem Google-Konto des Trägers (nicht einem privaten Konto)
+- [ ] **HTTPS** auf allen Endpunkten (Render und script.google.com — beides automatisch)
 - [ ] Admin-Passwort sicher und nur an berechtigte Personen weitergegeben
-- [ ] Google-Sheet-Dokument **nicht öffentlich** freigegeben (nur das Dienst-Konto hat Zugriff)
+- [ ] **Löschkonzept** für Anwesenheitsdaten nach Aufbewahrungsfrist (mit Rechtsberatung klären)
 
 ---
 
-## 12. Troubleshooting
+## 14. Troubleshooting
 
-### QR-Code öffnet falsche Seite / 404
+### „Konfigurationsfehler: Webhook-URL nicht gesetzt"
 
-→ Prüfen, ob Render-Rewrites korrekt greifen: `/anwesenheit` → `/anwesenheit.html`  
-→ `render.yaml` muss committet und neu deployed sein.
+→ `config.js` wurde nicht angepasst oder nicht committet/deployed.  
+→ `DEPLOYMENT_ID_HIER_ERSETZEN` durch die echte Apps Script URL ersetzen.
 
-### n8n-Webhook antwortet mit 404
+### Apps Script antwortet mit HTML statt JSON
 
-→ Workflow ist noch nicht aktiviert (der Toggle muss auf **Active** stehen)  
-→ Production-URL (nicht Test-URL) in `config.js` eingetragen?
+→ Die Web-App wurde als **alte Bereitstellung** angesprochen.  
+→ URL muss auf `.../exec` enden, nicht `.../dev` (dev erfordert Login).  
+→ Zugriff muss auf **„Jeder"** (nicht „Jeder mit Google-Konto") gesetzt sein.
 
-### Google Sheets: „The caller does not have permission"
+### Checkin schlägt fehl: „Kurs nicht gefunden"
 
-→ OAuth-Credential in n8n ist abgelaufen → neu autorisieren  
-→ Spreadsheet-ID falsch in `SPREADSHEET_ID`-Variable
-
-### Tägliche Mail kommt nicht an
-
-→ SMTP-Credential prüfen: Port 587 (STARTTLS) oder 465 (SSL) je nach Anbieter  
-→ Bei Gmail: „App-Passwort" verwenden (kein normales Passwort)  
-→ Im n8n-Execution-Log des Cron-Workflows nach Fehlern schauen
+→ Kurs-ID im QR-Code stimmt nicht mit dem Sheet überein.  
+→ Groß-/Kleinschreibung beachten — Vergleich ist case-sensitive.  
+→ Spalte „Aktiv" im Sheet muss genau `ja` enthalten (kein Leerzeichen).
 
 ### Admin-Login funktioniert nicht
 
-→ AUTH_HASH in n8n mit dem Hash des eingegebenen Passworts vergleichen  
-→ Hash im Terminal nachrechnen (Schritt 5) und mit `SPREADSHEET_ID`-Variable abgleichen
+→ AUTH_HASH in Script-Properties mit dem Hash des eingegebenen Passworts vergleichen.  
+→ Hash im Terminal nachrechnen (Schritt 4) und mit dem gespeicherten Property abgleichen.
 
-### Doppelter Eintrag trotz Duplikat-Schutz
+### Tägliche Mail kommt nicht an
 
-→ Der Duplikat-Schutz läuft über `localStorage` im Browser des TN  
-→ Bei gelöschtem Browser-Verlauf / Privatmodus / anderen Geräten greift er nicht  
-→ Bekannte MVP-Einschränkung (→ Abschnitt 13)
+→ Trigger prüfen: Apps Script Editor → Trigger (Uhr) → `taeglicheCSVMail` eingetragen?  
+→ `ADMIN_EMAIL` in Script-Properties korrekt gesetzt?  
+→ Apps Script Ausführungsprotokoll prüfen: **Ausführungen** (Uhr-Symbol links) → letzte Ausführung → Fehler?  
+→ Google-Konto hat max. 100 Mails/Tag (kostenlos). Bei höherem Volumen Gmail SMTP oder Workspace nötig.
+
+### QR-Code öffnet 404
+
+→ `render.yaml` enthält URL-Rewrite `/anwesenheit` → `/anwesenheit.html`.  
+→ Prüfen ob `render.yaml` committet und Render neu deployed hat.
+
+### CORS-Fehler im Browser
+
+→ Apps Script gibt immer HTTP 200 zurück — echter CORS-Fehler bedeutet, dass die Anfrage gar nicht ankam.  
+→ `Content-Type: text/plain` muss im fetch()-Aufruf gesetzt sein (nicht `application/json`).  
+→ Apps Script Web-App muss als „Jeder" (anonymous) deployt sein.
 
 ---
 
-## 13. Was dieser MVP bewusst NICHT macht
+## 15. Was dieser MVP bewusst NICHT macht
 
-Diese Einschränkungen sind bewusste Design-Entscheidungen für einen schnellen, wartungsarmen Einstieg. Sie sind keine Fehler.
-
-| Einschränkung | Begründung / Empfehlung für später |
+| Einschränkung | Empfehlung für später |
 |---|---|
-| **Kein Manipulationsschutz beim Scan** | Der QR-Code ist statisch und abfotografierbar. Jede Person mit dem Bild kann sich eintragen. Für spätere Ausbaustufe: zeitlich begrenzte Token (n8n generiert täglich neuen QR). |
-| **Ein Admin-Passwort, kein User-Management** | Reicht für kleine Teams. Kein Audit-Log, keine Rollen. Für mehrstufige Rechte: echte Auth-Lösung (Clerk, Supabase Auth o.ä.) erforderlich. |
-| **Keine Live-Stepnova-Anbindung** | Stepnova bietet keine offene Live-API. Import bleibt manuell (CSV) oder halb-automatisiert (SFTP). |
-| **Kein Mehrmandanten-Setup** | Ein Sheet, ein n8n-Workspace, ein Träger. Für mehrere Standorte/Träger: pro Mandant eigene Instanz oder komplexere Datenmodellierung. |
-| **Keine Versionierung gelöschter Kurse** | Anwesenheiten zu deaktivierten Kursen bleiben im Sheet, sind im Admin aber nicht mehr gefiltert sichtbar. Empfehlung: Kurse **deaktivieren** statt löschen. |
-| **Duplikat-Schutz nur per localStorage** | Funktioniert nicht bei Privatmodus, Gerätewechsel oder gelöschtem Cache. |
-| **Kein Offline-Fallback** | Ohne Internetverbindung funktioniert die Erfassung nicht. Backup-Plan: Papier bereithalten. |
-| **TN-ID wird nicht verifiziert** | Es gibt keine Prüfung, ob die eingegebene TN-ID existiert. Jede Zeichenkette wird akzeptiert. |
+| **Kein Manipulationsschutz beim Scan** | Statischer QR-Code ist abfotografierbar. Ausbaustufe: täglich wechselnde Token im QR. |
+| **Ein Admin-Passwort, kein User-Management** | Kein Audit-Log, keine Rollen. Für mehrstufige Rechte: echte Auth-Lösung nötig. |
+| **Keine Live-Stepnova-Anbindung** | Stepnova hat keine offene API. Import bleibt manuell (CSV) oder halb-automatisiert (SFTP). |
+| **Kein Mehrmandanten-Setup** | Ein Sheet, ein Script, ein Träger. |
+| **Keine Versionierung gelöschter Kurse** | Anwesenheiten bleiben im Sheet, sind im Admin aber nicht mehr gefiltert sichtbar. Empfehlung: **Deaktivieren** statt Löschen. |
+| **Duplikat-Schutz nur per localStorage** | Greift nicht bei Privatmodus, Gerätewechsel oder gelöschtem Cache. |
+| **TN-ID wird nicht verifiziert** | Jede Zeichenkette wird akzeptiert. Keine Prüfung ob TN-ID existiert. |
+| **Apps Script Tageslimits** | Kostenloser Plan: 6 Min. Ausführungszeit/Tag, 100 Mails/Tag. Für kleine Träger ausreichend. |
