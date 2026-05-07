@@ -402,11 +402,36 @@ function renderQrCode(container, kursId, kursName, onZurueck) {
   });
 }
 
-// ── Heute-Dashboard-View ──────────────────────────────────────────────────────
+// ── Datum-Hilfsfunktionen ─────────────────────────────────────────────────────
 
-function renderHeute(container, daten, onZurueck, onMail) {
+function isoZuDe(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+function deZuIso(de) {
+  if (!de) return '';
+  const [d, m, y] = de.split('.');
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
+function tagHeute() {
+  const d = new Date();
+  return String(d.getDate()).padStart(2,'0') + '.' +
+         String(d.getMonth()+1).padStart(2,'0') + '.' +
+         d.getFullYear();
+}
+
+// ── Anwesenheits-Dashboard ────────────────────────────────────────────────────
+
+function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
   const eintraege = daten?.eintraege || [];
-  const datum     = daten?.datum || '—';
+  const datum     = daten?.datum     || tagHeute();
+  const kursId    = daten?.kursId    || '';
+  const gesamt    = eintraege.length;
+
+  const aktiveKurse = (kurse || []).filter(k => String(k['Aktiv']).toLowerCase() === 'ja');
 
   // Einträge nach Kurs gruppieren
   const nachKurs = {};
@@ -415,36 +440,89 @@ function renderHeute(container, daten, onZurueck, onMail) {
     if (!nachKurs[kId]) nachKurs[kId] = { name: e['Kurs-Name'] || kId, eintraege: [] };
     nachKurs[kId].eintraege.push(e);
   }
-
-  const kursIds   = Object.keys(nachKurs);
-  const gesamt    = eintraege.length;
+  const kursIds = Object.keys(nachKurs);
 
   container.innerHTML = `
     <div class="seite-heute">
       <div class="seite-kopf">
         <div class="seite-kopf-links">
-          <h1>Heute anwesend</h1>
-          <span class="datum-badge">${esc(datum)}</span>
+          <h1>Anwesenheit</h1>
         </div>
         <div class="seite-kopf-aktionen">
           <button class="btn btn-ghost" id="btn-zurueck" type="button">← Zurück</button>
-          <button class="btn btn-sekundaer" id="btn-aktualisieren" type="button">↻ Aktualisieren</button>
-          <button class="btn btn-primär" id="btn-mail" type="button">CSV per E-Mail senden</button>
         </div>
       </div>
 
-      <div class="heute-zusammenfassung">
-        <span class="heute-zahl">${gesamt}</span>
-        <span class="heute-label">Einträge gesamt heute</span>
+      <!-- Filter-Leiste -->
+      <div class="filter-leiste">
+        <form id="filter-form" class="filter-form">
+          <div class="filter-feld">
+            <label for="filter-datum">Datum</label>
+            <input type="date" id="filter-datum" value="${esc(deZuIso(datum))}">
+          </div>
+          <div class="filter-feld">
+            <label for="filter-kurs">Kurs</label>
+            <select id="filter-kurs">
+              <option value="">Alle Kurse</option>
+              ${aktiveKurse.map(k => `
+                <option value="${esc(k['Kurs-ID'])}" ${k['Kurs-ID'] === kursId ? 'selected' : ''}>
+                  ${esc(k['Name'])}
+                </option>`).join('')}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-sekundaer filter-btn">Anwenden</button>
+          <button type="button" class="btn btn-mini btn-ghost" id="btn-aktualisieren" title="Aktualisieren">↻</button>
+        </form>
       </div>
 
+      <!-- Mail-Export -->
+      <div class="mail-export-leiste">
+        <button class="btn btn-primär" id="btn-mail-toggle" type="button">CSV per E-Mail senden</button>
+        <div id="mail-dialog" class="mail-dialog" hidden>
+          <form id="mail-form">
+            <div class="mail-felder">
+              <div class="filter-feld">
+                <label for="mail-empf">E-Mail-Adresse <span class="pflicht">*</span></label>
+                <input type="email" id="mail-empf" required placeholder="empfaenger@beispiel.de">
+              </div>
+              <div class="filter-feld">
+                <label for="mail-kurs">Kurs exportieren</label>
+                <select id="mail-kurs">
+                  <option value="">Alle Kurse (aktueller Filter)</option>
+                  ${aktiveKurse.map(k => `
+                    <option value="${esc(k['Kurs-ID'])}" ${k['Kurs-ID'] === kursId ? 'selected' : ''}>
+                      ${esc(k['Name'])}
+                    </option>`).join('')}
+                </select>
+              </div>
+              <label class="checkbox-label">
+                <input type="checkbox" id="mail-loeschen">
+                <span>Einträge nach dem Senden löschen</span>
+              </label>
+            </div>
+            <div class="mail-aktionen">
+              <button type="submit" class="btn btn-primär" id="mail-senden-btn">Senden</button>
+              <button type="button" class="btn btn-ghost" id="mail-abbrechen">Abbrechen</button>
+            </div>
+            <div class="meldung" id="mail-meldung" role="alert" aria-live="assertive"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Zusammenfassung -->
+      <div class="heute-zusammenfassung">
+        <span class="heute-zahl">${gesamt}</span>
+        <span class="heute-label">Einträge${datum ? ' am ' + esc(datum) : ''}</span>
+      </div>
+
+      <!-- Tabelle -->
       ${gesamt === 0
-        ? '<p class="leer-meldung">Noch keine Einträge für heute erfasst.</p>'
+        ? '<p class="leer-meldung">Keine Einträge für diesen Filter gefunden.</p>'
         : kursIds.map(kId => {
             const gruppe = nachKurs[kId];
             return `
-              <section class="kurs-gruppe" aria-labelledby="kurs-titel-${esc(kId)}">
-                <h2 id="kurs-titel-${esc(kId)}" class="kurs-gruppe-titel">
+              <section class="kurs-gruppe">
+                <h2 class="kurs-gruppe-titel">
                   ${esc(gruppe.name)}
                   <span class="kurs-gruppe-zahl">${gruppe.eintraege.length}</span>
                 </h2>
@@ -453,6 +531,7 @@ function renderHeute(container, daten, onZurueck, onMail) {
                     <tr>
                       <th scope="col">TN-ID</th>
                       <th scope="col">Name</th>
+                      <th scope="col">Datum</th>
                       <th scope="col">Uhrzeit</th>
                     </tr>
                   </thead>
@@ -461,38 +540,67 @@ function renderHeute(container, daten, onZurueck, onMail) {
                       <tr>
                         <td><code>${esc(e['TN-ID'] || '—')}</code></td>
                         <td>${esc(e['Name'] || '—')}</td>
+                        <td>${esc(e['Datum'] || '—')}</td>
                         <td>${esc(e['Zeit'] || '—')}</td>
-                      </tr>
-                    `).join('')}
+                      </tr>`).join('')}
                   </tbody>
                 </table>
-              </section>
-            `;
-          }).join('')
-      }
+              </section>`;
+          }).join('')}
     </div>
   `;
 
   container.querySelector('#btn-zurueck').addEventListener('click', onZurueck);
-  container.querySelector('#btn-aktualisieren').addEventListener('click', () => {
-    container.dispatchEvent(new CustomEvent('heute-aktualisieren', { bubbles: true }));
-  });
 
-  const btnMail = container.querySelector('#btn-mail');
-  btnMail.addEventListener('click', async () => {
-    btnMail.disabled = true;
-    btnMail.textContent = 'Wird gesendet …';
-    await onMail(
-      () => {
-        btnMail.textContent = '✓ Mail gesendet';
-        setTimeout(() => { btnMail.disabled = false; btnMail.textContent = 'CSV per E-Mail senden'; }, 3000);
-      },
-      (fehler) => {
-        btnMail.disabled = false;
-        btnMail.textContent = 'CSV per E-Mail senden';
-        alert('Fehler: ' + fehler);
-      }
-    );
+  function filterAnwenden() {
+    const d = container.querySelector('#filter-datum').value;
+    const k = container.querySelector('#filter-kurs').value;
+    onFilter(d ? isoZuDe(d) : '', k);
+  }
+  container.querySelector('#filter-form').addEventListener('submit', e => { e.preventDefault(); filterAnwenden(); });
+  container.querySelector('#btn-aktualisieren').addEventListener('click', filterAnwenden);
+
+  // Mail-Dialog
+  const mailDialog = container.querySelector('#mail-dialog');
+  container.querySelector('#btn-mail-toggle').addEventListener('click', () => {
+    mailDialog.hidden = !mailDialog.hidden;
+    if (!mailDialog.hidden) {
+      const last = localStorage.getItem('admin_mail_empf') || '';
+      container.querySelector('#mail-empf').value = last;
+      container.querySelector('#mail-empf').focus();
+    }
+  });
+  container.querySelector('#mail-abbrechen').addEventListener('click', () => { mailDialog.hidden = true; });
+
+  container.querySelector('#mail-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const empf     = container.querySelector('#mail-empf').value.trim();
+    const mailKurs = container.querySelector('#mail-kurs').value;
+    const loeschen = container.querySelector('#mail-loeschen').checked;
+    const btn      = container.querySelector('#mail-senden-btn');
+    const meldung  = container.querySelector('#mail-meldung');
+
+    meldung.className = 'meldung';
+    meldung.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Wird gesendet …';
+
+    localStorage.setItem('admin_mail_empf', empf);
+
+    const res = await onMail(empf, mailKurs || kursId, datum, loeschen);
+
+    if (!btn.isConnected) return;
+    btn.disabled = false;
+    btn.textContent = 'Senden';
+
+    if (res.ok) {
+      meldung.className = 'meldung erfolg';
+      meldung.textContent = `Mail an ${empf} gesendet (${res.daten?.anzahl ?? '?'} Einträge).`;
+      if (loeschen) setTimeout(() => onFilter(datum, kursId), 1800);
+    } else {
+      meldung.className = 'meldung fehler';
+      meldung.textContent = res.fehler || 'Fehler beim Senden.';
+    }
   });
 }
 

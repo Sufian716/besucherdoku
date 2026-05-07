@@ -19,9 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const container = document.getElementById('app');
   if (!container) return;
 
-  // Auf heute-aktualisieren-Event reagieren (kommt aus views.js Heute-View)
-  container.addEventListener('heute-aktualisieren', () => zeigeHeute(container));
-
   // Bereits angemeldete Sitzung? (Token in sessionStorage vorhanden)
   if (tokenLesen()) {
     zeigeListe(container);
@@ -126,23 +123,40 @@ function zeigeQr(container, kursId, kursName) {
   renderQrCode(container, kursId, kursName, () => zeigeListe(container));
 }
 
-async function zeigeHeute(container) {
+async function zeigeHeute(container, filterDatum, filterKurs) {
   zustand.ansicht = 'heute';
-  renderLaden(container, 'Heutige Einträge werden geladen …');
+  renderLaden(container, 'Einträge werden geladen …');
 
-  const ergebnis = await heuteLaden();
+  // Kursliste für Dropdown laden falls noch nicht vorhanden
+  if (!zustand.kurse || zustand.kurse.length === 0) {
+    const kErg = await kurseLaden();
+    if (kErg.ok) zustand.kurse = kErg.daten?.kurse || [];
+  }
+
+  const datum  = filterDatum !== undefined ? filterDatum : tagHeute();
+  const kursId = filterKurs  !== undefined ? filterKurs  : '';
+
+  const ergebnis = await anwesenheitFiltern(datum, kursId);
   if (!ergebnis.ok) {
     if (ergebnis.nichtAutorisiert) { zeigeLogin(container); return; }
     renderFehler(container, ergebnis.fehler, () => zeigeListe(container));
     return;
   }
 
-  renderHeute(container, ergebnis.daten, () => zeigeListe(container), async (onErfolg, onFehler) => {
-    const res = await mailSenden();
-    if (res.ok) onErfolg();
-    else if (res.nichtAutorisiert) zeigeLogin(container);
-    else onFehler(res.fehler);
-  });
+  const daten = { ...ergebnis.daten, datum, kursId };
+
+  renderHeute(
+    container,
+    daten,
+    zustand.kurse,
+    () => zeigeListe(container),
+    (d, k) => zeigeHeute(container, d, k),
+    async (empfaenger, kId, dat, loeschen) => {
+      const res = await mailSenden(empfaenger, kId, dat, loeschen);
+      if (res.nichtAutorisiert) { zeigeLogin(container); }
+      return res;
+    }
+  );
 }
 
 // ── Deaktivieren mit Bestätigung ───────────────────────────────────────────────

@@ -108,10 +108,10 @@ async function kursDeaktivieren(kursId) {
 
 // ── Heute-Dashboard ─────────────────────────────────────────────────────────
 
-async function heuteLaden() {
-  return apiAufruf('today');
+async function anwesenheitFiltern(datum, kursId) {
+  return apiAufruf('filter', { datum: datum || '', kursId: kursId || '' });
 }
 
-async function mailSenden() {
-  return apiAufruf('mailNow');
+async function mailSenden(empfaenger, kursId, datum, loeschen) {
+  return apiAufruf('mailNow', { empfaenger, kursId: kursId || '', datum: datum || '', loeschen: !!loeschen });
 }

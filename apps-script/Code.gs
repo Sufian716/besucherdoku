@@ -31,14 +31,24 @@ function normDatum(val) {
   return String(val);
 }
 
-// Sheet-Daten als Array von Objekten (Kopfzeile = Schlüssel)
+// Sheet-Daten als Array von Objekten – Date-Objekte werden normalisiert
 function sheetToObjects(sheet) {
+  const tz   = Session.getScriptTimeZone();
   const data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
   const header = data[0];
   return data.slice(1).map(row => {
     const obj = {};
-    header.forEach((key, i) => { obj[String(key)] = row[i]; });
+    header.forEach((key, i) => {
+      const val = row[i];
+      if (val instanceof Date) {
+        obj[String(key)] = String(key) === 'Zeit'
+          ? Utilities.formatDate(val, tz, 'HH:mm')
+          : Utilities.formatDate(val, tz, 'dd.MM.yyyy');
+      } else {
+        obj[String(key)] = val;
+      }
+    });
     return obj;
   });
 }
@@ -149,7 +159,8 @@ function handleCourseAction(body) {
     case 'update':     return actionUpdate(ss, body);
     case 'deactivate': return actionDeactivate(ss, body);
     case 'today':      return actionToday(ss);
-    case 'mailNow':    taeglicheCSVMail(); return json({ ok: true, nachricht: 'Mail gesendet.' });
+    case 'filter':     return actionFilter(ss, body);
+    case 'mailNow':    return actionMailNow(ss, body);
     default:           return json({ ok: false, fehler: 'Unbekannte Aktion: ' + body.action });
   }
 }
@@ -234,6 +245,87 @@ function actionToday(ss) {
   const alle  = sheetToObjects(ss.getSheetByName('Anwesenheit'));
   const heutige = alle.filter(e => normDatum(e['Datum']) === heute);
   return json({ ok: true, eintraege: heutige, datum: heute });
+}
+
+// ── Filter-Abfrage ────────────────────────────────────────────────────────────
+
+function actionFilter(ss, body) {
+  const datum  = body.datum  ? String(body.datum).trim()  : null;
+  const kursId = body.kursId ? String(body.kursId).trim() : null;
+
+  const alle      = sheetToObjects(ss.getSheetByName('Anwesenheit'));
+  const gefiltert = alle.filter(e => {
+    const datumMatch = !datum  || normDatum(e['Datum']) === datum;
+    const kursMatch  = !kursId || String(e['Kurs-ID'])  === kursId;
+    return datumMatch && kursMatch;
+  });
+
+  return json({ ok: true, eintraege: gefiltert });
+}
+
+// ── Manueller Mail-Versand ────────────────────────────────────────────────────
+
+function actionMailNow(ss, body) {
+  const empfaenger = body.empfaenger ? String(body.empfaenger).trim() : prop('ADMIN_EMAIL');
+  if (!empfaenger || !empfaenger.includes('@')) {
+    return json({ ok: false, fehler: 'Ungültige E-Mail-Adresse.' });
+  }
+
+  const tz           = Session.getScriptTimeZone();
+  const datum        = body.datum  ? String(body.datum).trim()
+                     : Utilities.formatDate(new Date(), tz, 'dd.MM.yyyy');
+  const kursIdFilter = body.kursId  ? String(body.kursId).trim()  : null;
+  const loeschen     = body.loeschen === true;
+
+  const alle      = sheetToObjects(ss.getSheetByName('Anwesenheit'));
+  const gefiltert = alle.filter(e => {
+    const datumMatch = normDatum(e['Datum']) === datum;
+    const kursMatch  = !kursIdFilter || String(e['Kurs-ID']) === kursIdFilter;
+    return datumMatch && kursMatch;
+  });
+
+  const spalten = ['TN-ID', 'Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
+
+  function csvFeld(wert) {
+    const s = String(wert ?? '');
+    if (s.includes(';') || s.includes('"') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  const zeilen    = [spalten.join(';')];
+  gefiltert.forEach(e => zeilen.push(spalten.map(sp => csvFeld(e[sp])).join(';')));
+  const csvInhalt = '﻿' + zeilen.join('\r\n');
+  const kursInfo  = kursIdFilter ? ' – ' + kursIdFilter : '';
+  const dateiName = 'anwesenheit_' + datum.replace(/\./g, '-')
+                  + (kursIdFilter ? '_' + kursIdFilter : '') + '.csv';
+
+  MailApp.sendEmail({
+    to:          empfaenger,
+    subject:     'Anwesenheitsliste ' + datum + kursInfo + ' – ' + gefiltert.length + ' Einträge',
+    body:        'Anbei die Anwesenheitsliste vom ' + datum + kursInfo + '.\n\n'
+               + 'Anzahl Einträge: ' + gefiltert.length + '\n\n'
+               + 'Diese E-Mail wurde aus dem Admin-Bereich gesendet.',
+    attachments: [Utilities.newBlob(csvInhalt, 'text/csv; charset=utf-8', dateiName)]
+  });
+
+  if (loeschen && gefiltert.length > 0) {
+    const aSheet   = ss.getSheetByName('Anwesenheit');
+    const raw      = aSheet.getDataRange().getValues();
+    const hdr      = raw[0];
+    const datumIdx = hdr.indexOf('Datum');
+    const kursIdx  = hdr.indexOf('Kurs-ID');
+    for (let i = raw.length - 1; i >= 1; i--) {
+      const rowDatum = normDatum(raw[i][datumIdx]);
+      const rowKurs  = String(raw[i][kursIdx]);
+      if (rowDatum === datum && (!kursIdFilter || rowKurs === kursIdFilter)) {
+        aSheet.deleteRow(i + 1);
+      }
+    }
+  }
+
+  return json({ ok: true, nachricht: 'Mail gesendet.', anzahl: gefiltert.length, geloescht: loeschen });
 }
 
 // ── Tägliche CSV-Mail (als Time-Trigger einrichten, nicht über Web-App) ───────
