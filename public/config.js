@@ -3,7 +3,7 @@
 
 // Apps Script Web-App-URL (nach Deployment unter "Als Web-App bereitstellen" kopieren)
 // Format: https://script.google.com/macros/s/DEINE_DEPLOYMENT_ID/exec
-window.WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbw2_raAswSKhLYtijG92Os1NOaUCwXrocvQ3IEhYYqHCtU24LZEAPQnFB67D6EXMP1nRQ/exec';
+window.WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4FTNBblFQbW6Qt8Ews5_hKbjuxrSsndiqiO4M4pmo5Y5CRAqDnkXaWybCmUdu5gZo7w/exec';
 
 // Shared-Key für den Checkin-Endpunkt – muss mit der Script-Property CHECKIN_KEY übereinstimmen.
 // Diese Datei ist öffentlich. Der Key ist kein Sicherheitsmerkmal,

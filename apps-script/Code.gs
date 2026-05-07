@@ -62,6 +62,7 @@ function doGet() {
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
+
 // doPost: Zentraler Router – alle Frontend-Requests landen hier
 function doPost(e) {
   try {
