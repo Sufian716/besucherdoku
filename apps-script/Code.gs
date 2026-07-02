@@ -95,7 +95,7 @@ function checkAuth(authToken) {
 // ── Checkin-Handler ───────────────────────────────────────────────────────────
 
 function handleCheckin(body) {
-  const { checkinKey, tnId, tnName, kursId } = body;
+  const { checkinKey, tnName, kursId } = body;
 
   const expectedKey = prop('CHECKIN_KEY');
   if (!expectedKey) return json({ ok: false, fehler: 'CHECKIN_KEY nicht konfiguriert.' });
@@ -103,8 +103,8 @@ function handleCheckin(body) {
     return json({ ok: false, fehler: 'Ungültiger Checkin-Schlüssel.' });
   }
 
-  if (!tnId || !/^[A-Za-z0-9\-_]{1,50}$/.test(String(tnId).trim())) {
-    return json({ ok: false, fehler: 'Ungültige oder fehlende TN-ID.' });
+  if (!tnName || String(tnName).trim().length < 2) {
+    return json({ ok: false, fehler: 'Ungültiger oder fehlender Name.' });
   }
   if (!kursId || !/^[A-Za-z0-9\-_]{1,50}$/.test(String(kursId).trim())) {
     return json({ ok: false, fehler: 'Ungültige oder fehlende Kurs-ID.' });
@@ -137,11 +137,9 @@ function handleCheckin(body) {
   const datum     = Utilities.formatDate(now, tz, 'dd.MM.yyyy');
   const zeit      = Utilities.formatDate(now, tz, 'HH:mm');
   const timestamp = now.toISOString();
-  const sauberName = tnName
-    ? String(tnName).replace(/[<>"'&]/g, '').trim().substring(0, 100)
-    : '';
+  const sauberName = String(tnName).replace(/[<>"'&]/g, '').trim().substring(0, 100);
 
-  aSheet.appendRow([tnId.trim(), sauberName, kursId.trim(), kursName, datum, zeit, timestamp]);
+  aSheet.appendRow([sauberName, kursId.trim(), kursName, datum, zeit, timestamp]);
 
   return json({ ok: true, nachricht: 'Anwesenheit erfasst.' });
 }
@@ -285,7 +283,7 @@ function actionMailNow(ss, body) {
     return datumMatch && kursMatch;
   });
 
-  const spalten = ['TN-ID', 'Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
+  const spalten = ['Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
 
   function csvFeld(wert) {
     const s = String(wert ?? '');
@@ -338,7 +336,7 @@ function taeglicheCSVMail() {
   const alle  = sheetToObjects(ss.getSheetByName('Anwesenheit'));
   const heutige = alle.filter(e => normDatum(e['Datum']) === heute);
 
-  const spalten = ['TN-ID', 'Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
+  const spalten = ['Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
 
   function csvFeld(wert) {
     const s = String(wert ?? '');

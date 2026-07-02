@@ -48,7 +48,7 @@ Kein separater Mail-Server nötig: Apps Script nutzt das verknüpfte Google-Kont
 3. **Tabellenblatt 2** anlegen, umbenennen in: `Anwesenheit`  
    Spaltenköpfe in Zeile 1:
    ```
-   TN-ID | Name | Kurs-ID | Kurs-Name | Datum | Zeit | Timestamp
+   Name | Kurs-ID | Kurs-Name | Datum | Zeit | Timestamp
    ```
 4. Die **Spreadsheet-ID** aus der URL kopieren:  
    `https://docs.google.com/spreadsheets/d/`**`DIESE_ID_HIER`**`/edit`
@@ -183,7 +183,7 @@ Die Website ist nach ~1 Minute unter der Render-URL erreichbar.
 ## 11. End-to-End-Test
 
 1. QR-Code mit dem Smartphone scannen
-2. Testdaten eingeben: TN-ID `TEST001`, Name `Test Teilnehmer`
+2. Testdaten eingeben: Name `Test Teilnehmer`
 3. Absenden → Erfolgsmeldung prüfen
 4. Im Admin-Bereich → **„Heute anwesend"**: Eintrag sollte erscheinen
 5. Im Google Sheet Tabellenblatt „Anwesenheit": Zeile prüfen
@@ -198,8 +198,8 @@ Die Website ist nach ~1 Minute unter der Render-URL erreichbar.
 Die tägliche Mail enthält eine CSV-Datei (Semikolon-getrennt, UTF-8 mit BOM, CRLF-Zeilenenden):
 
 ```
-TN-ID;Name;Kurs-ID;Kurs-Name;Datum;Zeit;Timestamp
-12345;Max Mustermann;DEUTSCH-A1;Deutsch A1;06.05.2025;09:15;2025-05-06T09:15:00
+Name;Kurs-ID;Kurs-Name;Datum;Zeit;Timestamp
+Max Mustermann;DEUTSCH-A1;Deutsch A1;06.05.2025;09:15;2025-05-06T09:15:00
 ```
 
 ### Import in Stepnova
@@ -282,5 +282,5 @@ Falls Stepnova das SFTP-Modul lizenziert hat: Apps Script kann per `UrlFetchApp`
 | **Kein Mehrmandanten-Setup** | Ein Sheet, ein Script, ein Träger. |
 | **Keine Versionierung gelöschter Kurse** | Anwesenheiten bleiben im Sheet, sind im Admin aber nicht mehr gefiltert sichtbar. Empfehlung: **Deaktivieren** statt Löschen. |
 | **Duplikat-Schutz nur per localStorage** | Greift nicht bei Privatmodus, Gerätewechsel oder gelöschtem Cache. |
-| **TN-ID wird nicht verifiziert** | Jede Zeichenkette wird akzeptiert. Keine Prüfung ob TN-ID existiert. |
+| **Name wird nicht verifiziert** | Jeder eingegebene Name wird akzeptiert. Keine Prüfung gegen eine Teilnehmerliste. |
 | **Apps Script Tageslimits** | Kostenloser Plan: 6 Min. Ausführungszeit/Tag, 100 Mails/Tag. Für kleine Träger ausreichend. |

@@ -313,27 +313,7 @@
 
         <form id="checkin-form" novalidate>
           <div class="feld-gruppe">
-            <label for="tn-id">Teilnehmer-ID <span class="pflicht" aria-label="Pflichtfeld">*</span></label>
-            <input
-              type="text"
-              id="tn-id"
-              name="tnId"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              inputmode="text"
-              placeholder="z.&thinsp;B. 12345 oder TN-001"
-              maxlength="50"
-              required
-              aria-required="true"
-              aria-describedby="tn-id-hinweis"
-            >
-            <p class="hinweis" id="tn-id-hinweis">Ihre TN-ID finden Sie auf dem Zulassungsschreiben oder der Einladung.</p>
-          </div>
-
-          <div class="feld-gruppe">
-            <label for="tn-name">Ihr Name <span style="font-weight:400;color:var(--grau-600)">(optional)</span></label>
+            <label for="tn-name">Ihr Name <span class="pflicht" aria-label="Pflichtfeld">*</span></label>
             <input
               type="text"
               id="tn-name"
@@ -341,9 +321,11 @@
               autocomplete="name"
               placeholder="Vorname Nachname"
               maxlength="100"
+              required
+              aria-required="true"
               aria-describedby="tn-name-hinweis"
             >
-            <p class="hinweis" id="tn-name-hinweis">Wird zusammen mit der TN-ID gespeichert.</p>
+            <p class="hinweis" id="tn-name-hinweis">Bitte Vor- und Nachname eingeben.</p>
           </div>
 
           <button type="submit" id="abschicken-btn">Anwesenheit bestätigen</button>
@@ -366,20 +348,19 @@
     async function handleSubmit(e) {
       e.preventDefault();
 
-      const tnId   = document.getElementById('tn-id').value.trim();
       const tnName = document.getElementById('tn-name').value.trim();
       const btn    = document.getElementById('abschicken-btn');
 
       // Client-seitige Pflichtfeld-Validierung
-      if (!tnId) {
-        zeigeFehler('Bitte geben Sie Ihre Teilnehmer-ID ein.');
-        document.getElementById('tn-id').focus();
+      if (!tnName) {
+        zeigeFehler('Bitte geben Sie Ihren Namen ein.');
+        document.getElementById('tn-name').focus();
         return;
       }
 
-      if (!/^[A-Za-z0-9\-_]{1,50}$/.test(tnId)) {
-        zeigeFehler('Die Teilnehmer-ID darf nur Buchstaben, Zahlen, Bindestriche und Unterstriche enthalten.');
-        document.getElementById('tn-id').focus();
+      if (tnName.length < 2) {
+        zeigeFehler('Bitte geben Sie Ihren vollständigen Namen ein.');
+        document.getElementById('tn-name').focus();
         return;
       }
 
@@ -403,7 +384,6 @@
           body: JSON.stringify({
             endpoint: 'checkin',
             checkinKey: window.CHECKIN_KEY || '',
-            tnId,
             tnName,
             kursId
           })
@@ -413,7 +393,7 @@
 
         if (daten.ok !== false) {
           eintragenMarkieren();
-          zeigeErfolg(tnName || tnId);
+          zeigeErfolg(tnName);
           document.getElementById('checkin-form').style.display = 'none';
         } else {
           const meldung = daten.fehler || `Fehler vom Server (${antwort.status}).`;

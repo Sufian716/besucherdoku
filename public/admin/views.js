@@ -354,7 +354,7 @@ function renderQrCode(container, kursId, kursName, onZurueck) {
         <h2 class="druck-kursname">${esc(kursName)}</h2>
         <div id="qr-druck" class="qr-druck-container"></div>
         <p class="druck-kurs-id">ID: ${esc(kursId)}</p>
-        <p class="druck-anweisung">QR-Code scannen und Teilnehmer-ID eingeben</p>
+        <p class="druck-anweisung">QR-Code scannen und Namen eingeben</p>
       </div>
     </div>
   `;
@@ -529,7 +529,6 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
                 <table class="heute-tabelle">
                   <thead>
                     <tr>
-                      <th scope="col">TN-ID</th>
                       <th scope="col">Name</th>
                       <th scope="col">Datum</th>
                       <th scope="col">Uhrzeit</th>
@@ -538,7 +537,6 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
                   <tbody>
                     ${gruppe.eintraege.map(e => `
                       <tr>
-                        <td><code>${esc(e['TN-ID'] || '—')}</code></td>
                         <td>${esc(e['Name'] || '—')}</td>
                         <td>${esc(e['Datum'] || '—')}</td>
                         <td>${esc(e['Zeit'] || '—')}</td>
