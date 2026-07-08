@@ -139,7 +139,19 @@ function handleCheckin(body) {
   const timestamp = now.toISOString();
   const sauberName = String(tnName).replace(/[<>"'&]/g, '').trim().substring(0, 100);
 
-  aSheet.appendRow([sauberName, kursId.trim(), kursName, datum, zeit, timestamp]);
+  // Header-basiert schreiben: funktioniert unabhängig davon, ob das Sheet
+  // noch eine alte "TN-ID"-Spalte enthält – dann bleibt diese einfach leer.
+  const aHdr   = aSheet.getRange(1, 1, 1, aSheet.getLastColumn()).getValues()[0];
+  const werte  = {
+    'Name':      sauberName,
+    'Kurs-ID':   kursId.trim(),
+    'Kurs-Name': kursName,
+    'Datum':     datum,
+    'Zeit':      zeit,
+    'Timestamp': timestamp
+  };
+  const zeile = aHdr.map(sp => Object.prototype.hasOwnProperty.call(werte, sp) ? werte[sp] : '');
+  aSheet.appendRow(zeile);
 
   return json({ ok: true, nachricht: 'Anwesenheit erfasst.' });
 }
