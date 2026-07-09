@@ -103,8 +103,9 @@ function handleCheckin(body) {
     return json({ ok: false, fehler: 'Ungültiger Checkin-Schlüssel.' });
   }
 
-  if (!tnName || String(tnName).trim().length < 2) {
-    return json({ ok: false, fehler: 'Ungültiger oder fehlender Name.' });
+  const namensTeile = String(tnName || '').trim().split(/\s+/).filter(Boolean);
+  if (namensTeile.length < 2 || namensTeile[0].length < 2 || namensTeile[1].length < 2) {
+    return json({ ok: false, fehler: 'Bitte Vor- und Nachnamen angeben.' });
   }
   if (!kursId || !/^[A-Za-z0-9\-_]{1,50}$/.test(String(kursId).trim())) {
     return json({ ok: false, fehler: 'Ungültige oder fehlende Kurs-ID.' });

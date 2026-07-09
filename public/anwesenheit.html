@@ -325,7 +325,7 @@
               aria-required="true"
               aria-describedby="tn-name-hinweis"
             >
-            <p class="hinweis" id="tn-name-hinweis">Bitte Vor- und Nachname eingeben.</p>
+            <p class="hinweis" id="tn-name-hinweis">Bitte Vor- und Nachnamen eintragen – nicht nur den Vornamen.</p>
           </div>
 
           <button type="submit" id="abschicken-btn">Anwesenheit bestätigen</button>
@@ -358,8 +358,9 @@
         return;
       }
 
-      if (tnName.length < 2) {
-        zeigeFehler('Bitte geben Sie Ihren vollständigen Namen ein.');
+      const teile = tnName.split(/\s+/).filter(Boolean);
+      if (teile.length < 2 || teile[0].length < 2 || teile[1].length < 2) {
+        zeigeFehler('Bitte geben Sie Vor- UND Nachnamen an (z. B. Fatima Yılmaz).');
         document.getElementById('tn-name').focus();
         return;
       }
