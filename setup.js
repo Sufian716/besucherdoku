@@ -88,7 +88,7 @@ function _einrichtung_(body) {
   kSheet.setFrozenRows(1);
 
   var aSheet = ss.insertSheet('Anwesenheit');
-  aSheet.getRange(1, 1, 1, 6).setValues([['Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp']]);
+  aSheet.getRange(1, 1, 1, 7).setValues([['Vorname', 'Nachname', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp']]);
   aSheet.setFrozenRows(1);
 
   // Script-Properties setzen

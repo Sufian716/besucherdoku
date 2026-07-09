@@ -48,7 +48,7 @@ Kein separater Mail-Server nötig: Apps Script nutzt das verknüpfte Google-Kont
 3. **Tabellenblatt 2** anlegen, umbenennen in: `Anwesenheit`  
    Spaltenköpfe in Zeile 1:
    ```
-   Name | Kurs-ID | Kurs-Name | Datum | Zeit | Timestamp
+   Vorname | Nachname | Kurs-ID | Kurs-Name | Datum | Zeit | Timestamp
    ```
 4. Die **Spreadsheet-ID** aus der URL kopieren:  
    `https://docs.google.com/spreadsheets/d/`**`DIESE_ID_HIER`**`/edit`
@@ -198,8 +198,8 @@ Die Website ist nach ~1 Minute unter der Render-URL erreichbar.
 Die tägliche Mail enthält eine CSV-Datei (Semikolon-getrennt, UTF-8 mit BOM, CRLF-Zeilenenden):
 
 ```
-Name;Kurs-ID;Kurs-Name;Datum;Zeit;Timestamp
-Max Mustermann;DEUTSCH-A1;Deutsch A1;06.05.2025;09:15;2025-05-06T09:15:00
+Vorname;Nachname;Kurs-ID;Kurs-Name;Datum;Zeit;Timestamp
+Max;Mustermann;DEUTSCH-A1;Deutsch A1;06.05.2025;09:15;2025-05-06T09:15:00
 ```
 
 ### Import in Stepnova

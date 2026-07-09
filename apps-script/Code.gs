@@ -95,7 +95,7 @@ function checkAuth(authToken) {
 // ── Checkin-Handler ───────────────────────────────────────────────────────────
 
 function handleCheckin(body) {
-  const { checkinKey, tnName, kursId } = body;
+  const { checkinKey, kursId } = body;
 
   const expectedKey = prop('CHECKIN_KEY');
   if (!expectedKey) return json({ ok: false, fehler: 'CHECKIN_KEY nicht konfiguriert.' });
@@ -103,10 +103,14 @@ function handleCheckin(body) {
     return json({ ok: false, fehler: 'Ungültiger Checkin-Schlüssel.' });
   }
 
-  const namensTeile = String(tnName || '').trim().split(/\s+/).filter(Boolean);
-  if (namensTeile.length < 2 || namensTeile[0].length < 2 || namensTeile[1].length < 2) {
-    return json({ ok: false, fehler: 'Bitte Vor- und Nachnamen angeben.' });
+  // Vor-/Nachname prüfen (geteilte Logik aus name-util.js)
+  const namePruef = checkinName(body);
+  if (!namePruef.ok) {
+    return json({ ok: false, fehler: namePruef.fehler });
   }
+  const vorname  = namePruef.vorname;
+  const nachname = namePruef.nachname;
+
   if (!kursId || !/^[A-Za-z0-9\-_]{1,50}$/.test(String(kursId).trim())) {
     return json({ ok: false, fehler: 'Ungültige oder fehlende Kurs-ID.' });
   }
@@ -138,13 +142,15 @@ function handleCheckin(body) {
   const datum     = Utilities.formatDate(now, tz, 'dd.MM.yyyy');
   const zeit      = Utilities.formatDate(now, tz, 'HH:mm');
   const timestamp = now.toISOString();
-  const sauberName = String(tnName).replace(/[<>"'&]/g, '').trim().substring(0, 100);
 
-  // Header-basiert schreiben: funktioniert unabhängig davon, ob das Sheet
-  // noch eine alte "TN-ID"-Spalte enthält – dann bleibt diese einfach leer.
+  // Header-basiert schreiben: funktioniert unabhängig davon, welche Spalten das
+  // Sheet hat. "Name" wird für Abwärtskompatibilität mitgeschrieben (alte Sheets
+  // ohne getrennte Spalten) und von neuen Sheets ohne "Name"-Spalte ignoriert.
   const aHdr   = aSheet.getRange(1, 1, 1, aSheet.getLastColumn()).getValues()[0];
   const werte  = {
-    'Name':      sauberName,
+    'Vorname':   vorname,
+    'Nachname':  nachname,
+    'Name':      (vorname + ' ' + nachname).trim(),
     'Kurs-ID':   kursId.trim(),
     'Kurs-Name': kursName,
     'Datum':     datum,
@@ -296,7 +302,7 @@ function actionMailNow(ss, body) {
     return datumMatch && kursMatch;
   });
 
-  const spalten = ['Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
+  const spalten = ['Vorname', 'Nachname', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
 
   function csvFeld(wert) {
     const s = String(wert ?? '');
@@ -349,7 +355,7 @@ function taeglicheCSVMail() {
   const alle  = sheetToObjects(ss.getSheetByName('Anwesenheit'));
   const heutige = alle.filter(e => normDatum(e['Datum']) === heute);
 
-  const spalten = ['Name', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
+  const spalten = ['Vorname', 'Nachname', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
 
   function csvFeld(wert) {
     const s = String(wert ?? '');

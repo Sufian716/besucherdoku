@@ -313,14 +313,28 @@
 
         <form id="checkin-form" novalidate>
           <div class="feld-gruppe">
-            <label for="tn-name">Ihr Name <span class="pflicht" aria-label="Pflichtfeld">*</span></label>
+            <label for="tn-vorname">Vorname <span class="pflicht" aria-label="Pflichtfeld">*</span></label>
             <input
               type="text"
-              id="tn-name"
-              name="tnName"
-              autocomplete="name"
-              placeholder="Vorname Nachname"
-              maxlength="100"
+              id="tn-vorname"
+              name="vorname"
+              autocomplete="given-name"
+              placeholder="z. B. Fatima"
+              maxlength="60"
+              required
+              aria-required="true"
+            >
+          </div>
+
+          <div class="feld-gruppe">
+            <label for="tn-nachname">Nachname <span class="pflicht" aria-label="Pflichtfeld">*</span></label>
+            <input
+              type="text"
+              id="tn-nachname"
+              name="nachname"
+              autocomplete="family-name"
+              placeholder="z. B. Yılmaz"
+              maxlength="60"
               required
               aria-required="true"
               aria-describedby="tn-name-hinweis"
@@ -348,20 +362,21 @@
     async function handleSubmit(e) {
       e.preventDefault();
 
-      const tnName = document.getElementById('tn-name').value.trim();
-      const btn    = document.getElementById('abschicken-btn');
+      const vorname  = document.getElementById('tn-vorname').value.trim();
+      const nachname = document.getElementById('tn-nachname').value.trim();
+      const tnName   = (vorname + ' ' + nachname).trim();
+      const btn      = document.getElementById('abschicken-btn');
 
       // Client-seitige Pflichtfeld-Validierung
-      if (!tnName) {
-        zeigeFehler('Bitte geben Sie Ihren Namen ein.');
-        document.getElementById('tn-name').focus();
+      if (vorname.length < 2) {
+        zeigeFehler('Bitte geben Sie Ihren Vornamen ein (mindestens 2 Zeichen).');
+        document.getElementById('tn-vorname').focus();
         return;
       }
 
-      const teile = tnName.split(/\s+/).filter(Boolean);
-      if (teile.length < 2 || teile[0].length < 2 || teile[1].length < 2) {
-        zeigeFehler('Bitte geben Sie Vor- UND Nachnamen an (z. B. Fatima Yılmaz).');
-        document.getElementById('tn-name').focus();
+      if (nachname.length < 2) {
+        zeigeFehler('Bitte geben Sie Ihren Nachnamen ein (mindestens 2 Zeichen).');
+        document.getElementById('tn-nachname').focus();
         return;
       }
 
@@ -385,7 +400,8 @@
           body: JSON.stringify({
             endpoint: 'checkin',
             checkinKey: window.CHECKIN_KEY || '',
-            tnName,
+            vorname,
+            nachname,
             kursId
           })
         });

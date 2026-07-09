@@ -1,0 +1,10 @@
+{
+  "name": "anwesenheit-mvp",
+  "version": "1.0.0",
+  "description": "Digitale Anwesenheitserfassung per QR-Code (Apps Script + Google Sheets + statisches Frontend)",
+  "private": true,
+  "scripts": {
+    "test": "node test/name.test.js"
+  },
+  "license": "MIT"
+}

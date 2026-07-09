@@ -529,7 +529,8 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
                 <table class="heute-tabelle">
                   <thead>
                     <tr>
-                      <th scope="col">Name</th>
+                      <th scope="col">Vorname</th>
+                      <th scope="col">Nachname</th>
                       <th scope="col">Datum</th>
                       <th scope="col">Uhrzeit</th>
                     </tr>
@@ -537,7 +538,8 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
                   <tbody>
                     ${gruppe.eintraege.map(e => `
                       <tr>
-                        <td>${esc(e['Name'] || '—')}</td>
+                        <td>${esc(e['Vorname'] || e['Name'] || '—')}</td>
+                        <td>${esc(e['Nachname'] || '—')}</td>
                         <td>${esc(e['Datum'] || '—')}</td>
                         <td>${esc(e['Zeit'] || '—')}</td>
                       </tr>`).join('')}
