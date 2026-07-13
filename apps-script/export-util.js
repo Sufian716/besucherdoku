@@ -36,6 +36,19 @@ function istImMonat(datumDe, monatIso) {
   return d[2] === m[0] && d[1] === m[1];
 }
 
+// Einträge nach Kurs zählen -> [{kursId, kursName, anzahl}], absteigend sortiert.
+function zaehleProKurs(eintraege) {
+  const map = {};
+  (eintraege || []).forEach(e => {
+    const id = (e && e['Kurs-ID']) ? String(e['Kurs-ID']) : 'unbekannt';
+    if (!map[id]) {
+      map[id] = { kursId: id, kursName: (e && e['Kurs-Name']) ? String(e['Kurs-Name']) : id, anzahl: 0 };
+    }
+    map[id].anzahl++;
+  });
+  return Object.keys(map).map(k => map[k]).sort((a, b) => b.anzahl - a.anzahl);
+}
+
 // Dateiname für den Monats-Export, z. B. anwesenheit_2026-07_naeh-kurs.csv
 function monatDateiname(monatIso, kursId) {
   const basis = 'anwesenheit_' + String(monatIso || 'monat');
@@ -45,5 +58,5 @@ function monatDateiname(monatIso, kursId) {
 
 // Node-Export (in Apps Script ist `module` undefined -> übersprungen)
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { EXPORT_SPALTEN, csvFeld, baueCsv, istImMonat, monatDateiname };
+  module.exports = { EXPORT_SPALTEN, csvFeld, baueCsv, istImMonat, monatDateiname, zaehleProKurs };
 }

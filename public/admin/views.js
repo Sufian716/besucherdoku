@@ -429,9 +429,17 @@ function monatHeute() {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 }
 
+// "2026-07" -> "Juli 2026"
+function isoZuMonatDe(iso) {
+  const namen = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const [y, m] = String(iso || '').split('-');
+  const idx = parseInt(m, 10) - 1;
+  return (namen[idx] || iso) + (y ? ' ' + y : '');
+}
+
 // ── Anwesenheits-Dashboard ────────────────────────────────────────────────────
 
-function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExportMonat) {
+function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExportMonat, onMonatStatistik) {
   const eintraege = daten?.eintraege || [];
   const datum     = daten?.datum     || tagHeute();
   const kursId    = daten?.kursId    || '';
@@ -541,6 +549,7 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
                 <input type="email" id="export-empf" placeholder="empfaenger@beispiel.de">
               </div>
             </div>
+            <div class="monat-statistik" id="monat-statistik" aria-live="polite">Wird geladen …</div>
             <div class="mail-aktionen">
               <button type="submit" class="btn btn-primär" id="monat-download-btn">CSV herunterladen</button>
               <button type="button" class="btn btn-sekundaer" id="monat-mail-btn">Per E-Mail senden</button>
@@ -647,11 +656,35 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
 
   // Monats-Export-Dialog
   const monatDialog = container.querySelector('#monat-dialog');
+  const statistikEl = container.querySelector('#monat-statistik');
+
+  async function statistikLaden() {
+    const monat = container.querySelector('#export-monat').value;
+    const eKurs = container.querySelector('#export-kurs').value;
+    if (!monat) { statistikEl.textContent = ''; return; }
+    statistikEl.textContent = 'Wird geladen …';
+    const res = await onMonatStatistik(monat, eKurs);
+    if (!statistikEl.isConnected) return;
+    if (!res.ok) { statistikEl.textContent = res.fehler || 'Statistik nicht verfügbar.'; return; }
+    const gesamt = res.daten?.gesamt ?? 0;
+    const proKurs = res.daten?.proKurs || [];
+    const monatText = isoZuMonatDe(monat);
+    let html = `<strong>${gesamt}</strong> Einträge im ${esc(monatText)}`;
+    if (!eKurs && proKurs.length > 0) {
+      html += '<ul class="statistik-liste">' +
+        proKurs.map(k => `<li>${esc(k.kursName)}: <strong>${k.anzahl}</strong></li>`).join('') +
+        '</ul>';
+    }
+    statistikEl.innerHTML = html;
+  }
+
   container.querySelector('#btn-monat-toggle').addEventListener('click', () => {
     monatDialog.hidden = !monatDialog.hidden;
-    if (!monatDialog.hidden) container.querySelector('#export-monat').focus();
+    if (!monatDialog.hidden) { container.querySelector('#export-monat').focus(); statistikLaden(); }
   });
   container.querySelector('#monat-abbrechen').addEventListener('click', () => { monatDialog.hidden = true; });
+  container.querySelector('#export-monat').addEventListener('change', statistikLaden);
+  container.querySelector('#export-kurs').addEventListener('change', statistikLaden);
 
   async function monatExport(perMail) {
     const monat   = container.querySelector('#export-monat').value;

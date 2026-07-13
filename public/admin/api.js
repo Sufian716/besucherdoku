@@ -120,3 +120,8 @@ async function mailSenden(empfaenger, kursId, datum, loeschen) {
 async function monatExportieren(monat, kursId, empfaenger) {
   return apiAufruf('exportMonat', { monat: monat || '', kursId: kursId || '', empfaenger: empfaenger || '' });
 }
+
+// Monats-Statistik: Gesamtzahl + Aufschlüsselung pro Kurs (ohne CSV).
+async function monatStatistikLaden(monat, kursId) {
+  return apiAufruf('monatStatistik', { monat: monat || '', kursId: kursId || '' });
+}

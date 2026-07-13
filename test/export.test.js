@@ -3,7 +3,7 @@
  * Läuft ohne Framework: `node test/export.test.js`.
  */
 const assert = require('assert');
-const { csvFeld, baueCsv, istImMonat, monatDateiname } = require('../apps-script/export-util.js');
+const { csvFeld, baueCsv, istImMonat, monatDateiname, zaehleProKurs } = require('../apps-script/export-util.js');
 
 let bestanden = 0, fehlgeschlagen = 0;
 function test(name, fn) {
@@ -56,6 +56,30 @@ test('escaping in Zeile (Semikolon im Namen)', () => {
 console.log('monatDateiname');
 test('mit Kurs', () => assert.strictEqual(monatDateiname('2026-07', 'naeh-kurs'), 'anwesenheit_2026-07_naeh-kurs.csv'));
 test('ohne Kurs', () => assert.strictEqual(monatDateiname('2026-07', ''), 'anwesenheit_2026-07.csv'));
+
+console.log('zaehleProKurs');
+test('leere Liste -> []', () => assert.deepStrictEqual(zaehleProKurs([]), []));
+test('gruppiert und zählt pro Kurs', () => {
+  const e = [
+    { 'Kurs-ID': 'naeh', 'Kurs-Name': 'Näh Kurs' },
+    { 'Kurs-ID': 'naeh', 'Kurs-Name': 'Näh Kurs' },
+    { 'Kurs-ID': 'deutsch', 'Kurs-Name': 'Deutsch A1' }
+  ];
+  assert.deepStrictEqual(zaehleProKurs(e), [
+    { kursId: 'naeh', kursName: 'Näh Kurs', anzahl: 2 },
+    { kursId: 'deutsch', kursName: 'Deutsch A1', anzahl: 1 }
+  ]);
+});
+test('absteigend sortiert', () => {
+  const e = [
+    { 'Kurs-ID': 'a', 'Kurs-Name': 'A' },
+    { 'Kurs-ID': 'b', 'Kurs-Name': 'B' }, { 'Kurs-ID': 'b', 'Kurs-Name': 'B' }
+  ];
+  assert.strictEqual(zaehleProKurs(e)[0].kursId, 'b');
+});
+test('fehlende Kurs-ID -> unbekannt', () => {
+  assert.strictEqual(zaehleProKurs([{}])[0].kursId, 'unbekannt');
+});
 
 console.log('\n' + bestanden + ' bestanden, ' + fehlgeschlagen + ' fehlgeschlagen');
 process.exit(fehlgeschlagen === 0 ? 0 : 1);

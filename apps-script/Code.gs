@@ -180,6 +180,7 @@ function handleCourseAction(body) {
     case 'filter':     return actionFilter(ss, body);
     case 'mailNow':    return actionMailNow(ss, body);
     case 'exportMonat':return actionExportMonat(ss, body);
+    case 'monatStatistik': return actionMonatStatistik(ss, body);
     default:           return json({ ok: false, fehler: 'Unbekannte Aktion: ' + body.action });
   }
 }
@@ -333,6 +334,25 @@ function actionMailNow(ss, body) {
   }
 
   return json({ ok: true, nachricht: 'Mail gesendet.', anzahl: gefiltert.length, geloescht: loeschen });
+}
+
+// ── Monats-Statistik (Gesamtzahl + Aufschlüsselung pro Kurs) ──────────────────
+
+function actionMonatStatistik(ss, body) {
+  const monat = body.monat ? String(body.monat).trim() : '';
+  if (!/^\d{4}-\d{2}$/.test(monat)) {
+    return json({ ok: false, fehler: 'Ungültiger Monat (erwartet YYYY-MM).' });
+  }
+  const kursIdFilter = body.kursId ? String(body.kursId).trim() : null;
+
+  const alle      = sheetToObjects(ss.getSheetByName('Anwesenheit'));
+  const gefiltert = alle.filter(e => {
+    const monatMatch = istImMonat(normDatum(e['Datum']), monat);
+    const kursMatch  = !kursIdFilter || String(e['Kurs-ID']) === kursIdFilter;
+    return monatMatch && kursMatch;
+  });
+
+  return json({ ok: true, monat: monat, gesamt: gefiltert.length, proKurs: zaehleProKurs(gefiltert) });
 }
 
 // ── Monats-Export (CSV) ───────────────────────────────────────────────────────
