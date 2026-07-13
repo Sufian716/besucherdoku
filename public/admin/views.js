@@ -83,7 +83,7 @@ function renderKursliste(container, kurse, callbacks) {
           <span class="marke-klein">${esc(window.BRAND_NAME || 'Bildungsträger')}</span>
         </div>
         <div class="seite-kopf-aktionen">
-          <button class="btn btn-sekundaer" id="btn-heute" type="button">Heute anwesend</button>
+          <button class="btn btn-sekundaer" id="btn-heute" type="button">Export</button>
           <button class="btn btn-primär" id="btn-neu" type="button">+ Neuen Kurs anlegen</button>
           <button class="btn btn-ghost" id="btn-abmelden" type="button">Abmelden</button>
         </div>
@@ -526,7 +526,7 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
 
       <!-- Monats-Export -->
       <div class="mail-export-leiste">
-        <button class="btn btn-sekundaer" id="btn-monat-toggle" type="button">📅 Monats-Export</button>
+        <button class="btn btn-primär" id="btn-monat-toggle" type="button">📅 Monats-Export</button>
         <div id="monat-dialog" class="mail-dialog" hidden>
           <form id="monat-form">
             <div class="mail-felder">
