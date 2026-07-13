@@ -512,7 +512,7 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
               </div>
               <label class="checkbox-label">
                 <input type="checkbox" id="mail-loeschen">
-                <span>Einträge nach dem Senden löschen</span>
+                <span>Einträge nach dem Senden löschen (unwiderruflich – mit Rückfrage)</span>
               </label>
             </div>
             <div class="mail-aktionen">
@@ -630,6 +630,23 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
     const loeschen = container.querySelector('#mail-loeschen').checked;
     const btn      = container.querySelector('#mail-senden-btn');
     const meldung  = container.querySelector('#mail-meldung');
+
+    // Sicherheitsabfrage vor unwiderruflichem Löschen
+    if (loeschen) {
+      const kursTxt = (mailKurs || kursId) ? ` im Kurs „${mailKurs || kursId}"` : '';
+      const bestaetigt = confirm(
+        '⚠️ Unwiderruflich löschen?\n\n' +
+        `Die Anwesenheitseinträge vom ${datum}${kursTxt} werden nach dem Versand DAUERHAFT ` +
+        'aus der Tabelle gelöscht und können nicht wiederhergestellt werden.\n\n' +
+        'Tipp: vorher lieber den Monats-Export sichern.\n\n' +
+        'Wirklich senden UND löschen?'
+      );
+      if (!bestaetigt) {
+        meldung.className = 'meldung';
+        meldung.textContent = 'Abgebrochen – es wurde nichts gesendet und nichts gelöscht.';
+        return;
+      }
+    }
 
     meldung.className = 'meldung';
     meldung.textContent = '';
