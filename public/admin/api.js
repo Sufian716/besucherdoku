@@ -115,3 +115,8 @@ async function anwesenheitFiltern(datum, kursId) {
 async function mailSenden(empfaenger, kursId, datum, loeschen) {
   return apiAufruf('mailNow', { empfaenger, kursId: kursId || '', datum: datum || '', loeschen: !!loeschen });
 }
+
+// Monats-Export: liefert die CSV als String zurück (für Download); mit empfaenger zusätzlich per Mail.
+async function monatExportieren(monat, kursId, empfaenger) {
+  return apiAufruf('exportMonat', { monat: monat || '', kursId: kursId || '', empfaenger: empfaenger || '' });
+}

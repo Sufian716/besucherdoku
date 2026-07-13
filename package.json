@@ -4,7 +4,7 @@
   "description": "Digitale Anwesenheitserfassung per QR-Code (Apps Script + Google Sheets + statisches Frontend)",
   "private": true,
   "scripts": {
-    "test": "node test/name.test.js"
+    "test": "node test/name.test.js && node test/export.test.js"
   },
   "license": "MIT"
 }

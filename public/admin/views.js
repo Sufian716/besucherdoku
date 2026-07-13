@@ -423,13 +423,20 @@ function tagHeute() {
          d.getFullYear();
 }
 
+// Aktueller Monat als YYYY-MM (Default für den Monats-Export)
+function monatHeute() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
 // ── Anwesenheits-Dashboard ────────────────────────────────────────────────────
 
-function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
+function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExportMonat) {
   const eintraege = daten?.eintraege || [];
   const datum     = daten?.datum     || tagHeute();
   const kursId    = daten?.kursId    || '';
   const gesamt    = eintraege.length;
+  const aktMonat  = monatHeute();  // YYYY-MM als Default für den Monats-Export
 
   const aktiveKurse = (kurse || []).filter(k => String(k['Aktiv']).toLowerCase() === 'ja');
 
@@ -505,6 +512,41 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
               <button type="button" class="btn btn-ghost" id="mail-abbrechen">Abbrechen</button>
             </div>
             <div class="meldung" id="mail-meldung" role="alert" aria-live="assertive"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Monats-Export -->
+      <div class="mail-export-leiste">
+        <button class="btn btn-sekundaer" id="btn-monat-toggle" type="button">📅 Monats-Export</button>
+        <div id="monat-dialog" class="mail-dialog" hidden>
+          <form id="monat-form">
+            <div class="mail-felder">
+              <div class="filter-feld">
+                <label for="export-monat">Monat <span class="pflicht">*</span></label>
+                <input type="month" id="export-monat" value="${esc(aktMonat)}" required>
+              </div>
+              <div class="filter-feld">
+                <label for="export-kurs">Kurs</label>
+                <select id="export-kurs">
+                  <option value="">Alle Kurse</option>
+                  ${aktiveKurse.map(k => `
+                    <option value="${esc(k['Kurs-ID'])}" ${k['Kurs-ID'] === kursId ? 'selected' : ''}>
+                      ${esc(k['Name'])}
+                    </option>`).join('')}
+                </select>
+              </div>
+              <div class="filter-feld">
+                <label for="export-empf">Zusätzlich per E-Mail (optional)</label>
+                <input type="email" id="export-empf" placeholder="empfaenger@beispiel.de">
+              </div>
+            </div>
+            <div class="mail-aktionen">
+              <button type="submit" class="btn btn-primär" id="monat-download-btn">CSV herunterladen</button>
+              <button type="button" class="btn btn-sekundaer" id="monat-mail-btn">Per E-Mail senden</button>
+              <button type="button" class="btn btn-ghost" id="monat-abbrechen">Abbrechen</button>
+            </div>
+            <div class="meldung" id="monat-meldung" role="alert" aria-live="assertive"></div>
           </form>
         </div>
       </div>
@@ -602,6 +644,75 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail) {
       meldung.textContent = res.fehler || 'Fehler beim Senden.';
     }
   });
+
+  // Monats-Export-Dialog
+  const monatDialog = container.querySelector('#monat-dialog');
+  container.querySelector('#btn-monat-toggle').addEventListener('click', () => {
+    monatDialog.hidden = !monatDialog.hidden;
+    if (!monatDialog.hidden) container.querySelector('#export-monat').focus();
+  });
+  container.querySelector('#monat-abbrechen').addEventListener('click', () => { monatDialog.hidden = true; });
+
+  async function monatExport(perMail) {
+    const monat   = container.querySelector('#export-monat').value;
+    const eKurs   = container.querySelector('#export-kurs').value;
+    const empf    = container.querySelector('#export-empf').value.trim();
+    const dlBtn   = container.querySelector('#monat-download-btn');
+    const maiBtn  = container.querySelector('#monat-mail-btn');
+    const meldung = container.querySelector('#monat-meldung');
+
+    meldung.className = 'meldung';
+    meldung.textContent = '';
+    if (!monat) {
+      meldung.className = 'meldung fehler';
+      meldung.textContent = 'Bitte einen Monat auswählen.';
+      return;
+    }
+    if (perMail && !empf) {
+      meldung.className = 'meldung fehler';
+      meldung.textContent = 'Für den Mail-Versand bitte eine E-Mail-Adresse eingeben.';
+      return;
+    }
+
+    dlBtn.disabled = true; maiBtn.disabled = true;
+    const aktiverBtn = perMail ? maiBtn : dlBtn;
+    const altText = aktiverBtn.textContent;
+    aktiverBtn.textContent = perMail ? 'Wird gesendet …' : 'Wird erstellt …';
+
+    const res = await onExportMonat(monat, eKurs, perMail ? empf : '');
+
+    if (aktiverBtn.isConnected) {
+      dlBtn.disabled = false; maiBtn.disabled = false;
+      aktiverBtn.textContent = altText;
+    }
+
+    if (!res.ok) {
+      meldung.className = 'meldung fehler';
+      meldung.textContent = res.fehler || 'Export fehlgeschlagen.';
+      return;
+    }
+
+    const anzahl = res.daten?.anzahl ?? 0;
+    if (!perMail) {
+      // CSV-Download im Browser auslösen
+      const blob = new Blob([res.daten.csv], { type: 'text/csv;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = res.daten.dateiname || ('anwesenheit_' + monat + '.csv');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    meldung.className = 'meldung erfolg';
+    meldung.textContent = perMail
+      ? `Monats-Export an ${empf} gesendet (${anzahl} Einträge).`
+      : `Download gestartet: ${anzahl} Einträge für ${monat}.`;
+  }
+
+  container.querySelector('#monat-form').addEventListener('submit', e => { e.preventDefault(); monatExport(false); });
+  container.querySelector('#monat-mail-btn').addEventListener('click', () => monatExport(true));
 }
 
 // ── Lade-Indikator ────────────────────────────────────────────────────────────

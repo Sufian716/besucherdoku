@@ -179,6 +179,7 @@ function handleCourseAction(body) {
     case 'today':      return actionToday(ss);
     case 'filter':     return actionFilter(ss, body);
     case 'mailNow':    return actionMailNow(ss, body);
+    case 'exportMonat':return actionExportMonat(ss, body);
     default:           return json({ ok: false, fehler: 'Unbekannte Aktion: ' + body.action });
   }
 }
@@ -302,19 +303,7 @@ function actionMailNow(ss, body) {
     return datumMatch && kursMatch;
   });
 
-  const spalten = ['Vorname', 'Nachname', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
-
-  function csvFeld(wert) {
-    const s = String(wert ?? '');
-    if (s.includes(';') || s.includes('"') || s.includes('\n')) {
-      return '"' + s.replace(/"/g, '""') + '"';
-    }
-    return s;
-  }
-
-  const zeilen    = [spalten.join(';')];
-  gefiltert.forEach(e => zeilen.push(spalten.map(sp => csvFeld(e[sp])).join(';')));
-  const csvInhalt = '﻿' + zeilen.join('\r\n');
+  const csvInhalt = baueCsv(gefiltert, EXPORT_SPALTEN);
   const kursInfo  = kursIdFilter ? ' – ' + kursIdFilter : '';
   const dateiName = 'anwesenheit_' + datum.replace(/\./g, '-')
                   + (kursIdFilter ? '_' + kursIdFilter : '') + '.csv';
@@ -346,6 +335,44 @@ function actionMailNow(ss, body) {
   return json({ ok: true, nachricht: 'Mail gesendet.', anzahl: gefiltert.length, geloescht: loeschen });
 }
 
+// ── Monats-Export (CSV) ───────────────────────────────────────────────────────
+
+function actionExportMonat(ss, body) {
+  const monat  = body.monat ? String(body.monat).trim() : '';
+  if (!/^\d{4}-\d{2}$/.test(monat)) {
+    return json({ ok: false, fehler: 'Ungültiger Monat (erwartet YYYY-MM).' });
+  }
+  const kursIdFilter = body.kursId ? String(body.kursId).trim() : null;
+
+  const alle      = sheetToObjects(ss.getSheetByName('Anwesenheit'));
+  const gefiltert = alle.filter(e => {
+    const monatMatch = istImMonat(normDatum(e['Datum']), monat);
+    const kursMatch  = !kursIdFilter || String(e['Kurs-ID']) === kursIdFilter;
+    return monatMatch && kursMatch;
+  });
+
+  const csvInhalt = baueCsv(gefiltert, EXPORT_SPALTEN);
+  const dateiName = monatDateiname(monat, kursIdFilter);
+
+  // Optional zusätzlich per Mail versenden
+  let gemailt = false;
+  const empfaenger = body.empfaenger ? String(body.empfaenger).trim() : '';
+  if (empfaenger && empfaenger.includes('@')) {
+    const kursInfo = kursIdFilter ? ' – ' + kursIdFilter : '';
+    MailApp.sendEmail({
+      to:          empfaenger,
+      subject:     'Anwesenheit Monat ' + monat + kursInfo + ' – ' + gefiltert.length + ' Einträge',
+      body:        'Anbei der Monats-Export für ' + monat + kursInfo + '.\n\n'
+                 + 'Anzahl Einträge: ' + gefiltert.length + '\n\n'
+                 + 'Diese E-Mail wurde aus dem Admin-Bereich gesendet.',
+      attachments: [Utilities.newBlob(csvInhalt, 'text/csv; charset=utf-8', dateiName)]
+    });
+    gemailt = true;
+  }
+
+  return json({ ok: true, monat: monat, anzahl: gefiltert.length, dateiname: dateiName, csv: csvInhalt, gemailt: gemailt });
+}
+
 // ── Tägliche CSV-Mail (als Time-Trigger einrichten, nicht über Web-App) ───────
 
 function taeglicheCSVMail() {
@@ -355,21 +382,7 @@ function taeglicheCSVMail() {
   const alle  = sheetToObjects(ss.getSheetByName('Anwesenheit'));
   const heutige = alle.filter(e => normDatum(e['Datum']) === heute);
 
-  const spalten = ['Vorname', 'Nachname', 'Kurs-ID', 'Kurs-Name', 'Datum', 'Zeit', 'Timestamp'];
-
-  function csvFeld(wert) {
-    const s = String(wert ?? '');
-    if (s.includes(';') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-      return '"' + s.replace(/"/g, '""') + '"';
-    }
-    return s;
-  }
-
-  const zeilen = [spalten.join(';')];
-  heutige.forEach(e => zeilen.push(spalten.map(sp => csvFeld(e[sp])).join(';')));
-
-  // UTF-8 BOM + CRLF – so öffnet Excel auf deutschen Systemen die Datei korrekt
-  const csvInhalt = '﻿' + zeilen.join('\r\n');
+  const csvInhalt = baueCsv(heutige, EXPORT_SPALTEN);
   const dateiName = 'anwesenheit_' + heute.replace(/\./g, '-') + '.csv';
   const adminEmail = prop('ADMIN_EMAIL');
   if (!adminEmail) return;

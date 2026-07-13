@@ -155,6 +155,11 @@ async function zeigeHeute(container, filterDatum, filterKurs) {
       const res = await mailSenden(empfaenger, kId, dat, loeschen);
       if (res.nichtAutorisiert) { zeigeLogin(container); }
       return res;
+    },
+    async (monat, kId, empfaenger) => {
+      const res = await monatExportieren(monat, kId, empfaenger);
+      if (res.nichtAutorisiert) { zeigeLogin(container); }
+      return res;
     }
   );
 }
