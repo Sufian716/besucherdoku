@@ -180,6 +180,7 @@ function handleCourseAction(body) {
     case 'filter':     return actionFilter(ss, body);
     case 'mailNow':    return actionMailNow(ss, body);
     case 'exportMonat':return actionExportMonat(ss, body);
+    case 'exportQuartal': return actionExportQuartal(ss, body);
     case 'monatStatistik': return actionMonatStatistik(ss, body);
     default:           return json({ ok: false, fehler: 'Unbekannte Aktion: ' + body.action });
   }
@@ -334,6 +335,53 @@ function actionMailNow(ss, body) {
   }
 
   return json({ ok: true, nachricht: 'Mail gesendet.', anzahl: gefiltert.length, geloescht: loeschen });
+}
+
+// ── Quartals-Export (3 Monate, pro Person + Kurs zusammengefasst) ─────────────
+
+function actionExportQuartal(ss, body) {
+  const quartal = parseInt(body.quartal, 10);
+  const jahr    = String(body.jahr || '').trim();
+  if (!(quartal >= 1 && quartal <= 4) || !/^\d{4}$/.test(jahr)) {
+    return json({ ok: false, fehler: 'Ungültiges Quartal/Jahr (Q1–Q4, YYYY).' });
+  }
+  const startM = ['01', '04', '07', '10'][quartal - 1];
+  const endM   = ['03', '06', '09', '12'][quartal - 1];
+  const von = jahr + '-' + startM;
+  const bis = jahr + '-' + endM;
+  const kursIdFilter = body.kursId ? String(body.kursId).trim() : null;
+
+  const alle      = sheetToObjects(ss.getSheetByName('Anwesenheit'));
+  const gefiltert = alle.filter(e => {
+    const zeitMatch = istImZeitraum(normDatum(e['Datum']), von, bis);
+    const kursMatch = !kursIdFilter || String(e['Kurs-ID']) === kursIdFilter;
+    return zeitMatch && kursMatch;
+  });
+
+  const zusammengefasst = fasseProPersonZusammen(gefiltert);
+  const csvInhalt = baueCsv(zusammengefasst, QUARTAL_SPALTEN);
+  const dateiName = 'stepnova_Q' + quartal + '-' + jahr
+                  + (kursIdFilter ? '_' + kursIdFilter.replace(/[^A-Za-z0-9\-_]/g, '') : '') + '.csv';
+
+  let gemailt = false;
+  const empfaenger = body.empfaenger ? String(body.empfaenger).trim() : '';
+  if (empfaenger && empfaenger.includes('@')) {
+    const kursInfo = kursIdFilter ? ' – ' + kursIdFilter : '';
+    MailApp.sendEmail({
+      to:          empfaenger,
+      subject:     'Quartals-Export Q' + quartal + '/' + jahr + kursInfo + ' – ' + zusammengefasst.length + ' Personen',
+      body:        'Anbei der Quartals-Export (Q' + quartal + '/' + jahr + ', ' + von + ' bis ' + bis + ')' + kursInfo + '.\n\n'
+                 + 'Personen (je Kurs einmal): ' + zusammengefasst.length + '\n'
+                 + 'Anwesenheiten gesamt: ' + gefiltert.length + '\n\n'
+                 + 'Diese E-Mail wurde aus dem Admin-Bereich gesendet.',
+      attachments: [Utilities.newBlob(csvInhalt, 'text/csv; charset=utf-8', dateiName)]
+    });
+    gemailt = true;
+  }
+
+  return json({ ok: true, quartal: quartal, jahr: jahr, von: von, bis: bis,
+    personen: zusammengefasst.length, anwesenheiten: gefiltert.length,
+    dateiname: dateiName, csv: csvInhalt, gemailt: gemailt });
 }
 
 // ── Monats-Statistik (Gesamtzahl + Aufschlüsselung pro Kurs) ──────────────────

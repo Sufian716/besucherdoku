@@ -437,9 +437,28 @@ function isoZuMonatDe(iso) {
   return (namen[idx] || iso) + (y ? ' ' + y : '');
 }
 
+// Label für ein Quartal, z. B. quartalLabel(3, 2026) -> "Q3 2026 (Jul–Sep)"
+function quartalLabel(q, jahr) {
+  const spannen = ['Jan–Mär', 'Apr–Jun', 'Jul–Sep', 'Okt–Dez'];
+  return 'Q' + q + ' ' + jahr + ' (' + spannen[q - 1] + ')';
+}
+
+// Liste der letzten `anzahl` Quartale (neustes zuerst) als {value:"jahr-q", label}.
+function letzteQuartale(anzahl) {
+  const d = new Date();
+  let jahr = d.getFullYear();
+  let q = Math.floor(d.getMonth() / 3) + 1;   // 1..4
+  const liste = [];
+  for (let i = 0; i < anzahl; i++) {
+    liste.push({ value: jahr + '-' + q, label: quartalLabel(q, jahr) });
+    q--; if (q < 1) { q = 4; jahr--; }
+  }
+  return liste;
+}
+
 // ── Anwesenheits-Dashboard ────────────────────────────────────────────────────
 
-function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExportMonat, onMonatStatistik) {
+function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExportMonat, onMonatStatistik, onExportQuartal) {
   const eintraege = daten?.eintraege || [];
   const datum     = daten?.datum     || tagHeute();
   const kursId    = daten?.kursId    || '';
@@ -556,6 +575,46 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
               <button type="button" class="btn btn-ghost" id="monat-abbrechen">Abbrechen</button>
             </div>
             <div class="meldung" id="monat-meldung" role="alert" aria-live="assertive"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Quartals-Export (für Stepnova) -->
+      <div class="mail-export-leiste">
+        <button class="btn btn-primär" id="btn-quartal-toggle" type="button">🗓 Quartals-Export (für Stepnova)</button>
+        <div id="quartal-dialog" class="mail-dialog" hidden>
+          <form id="quartal-form">
+            <p class="hinweis">Eine Zeile pro Person und Kurs – auch bei mehrfacher Anwesenheit. Ideal zum Übertragen nach Stepnova.</p>
+            <div class="mail-felder">
+              <div class="filter-feld">
+                <label for="export-quartal">Quartal <span class="pflicht">*</span></label>
+                <select id="export-quartal">
+                  ${letzteQuartale(8).map((qq, i) => `
+                    <option value="${esc(qq.value)}" ${i === 0 ? 'selected' : ''}>${esc(qq.label)}</option>`).join('')}
+                </select>
+              </div>
+              <div class="filter-feld">
+                <label for="quartal-kurs">Kurs</label>
+                <select id="quartal-kurs">
+                  <option value="">Alle Kurse</option>
+                  ${aktiveKurse.map(k => `
+                    <option value="${esc(k['Kurs-ID'])}" ${k['Kurs-ID'] === kursId ? 'selected' : ''}>
+                      ${esc(k['Name'])}
+                    </option>`).join('')}
+                </select>
+              </div>
+              <div class="filter-feld">
+                <label for="quartal-empf">Zusätzlich per E-Mail (optional)</label>
+                <input type="email" id="quartal-empf" placeholder="empfaenger@beispiel.de">
+              </div>
+            </div>
+            <div class="monat-statistik" id="quartal-statistik" aria-live="polite"></div>
+            <div class="mail-aktionen">
+              <button type="submit" class="btn btn-primär" id="quartal-download-btn">CSV herunterladen</button>
+              <button type="button" class="btn btn-sekundaer" id="quartal-mail-btn">Per E-Mail senden</button>
+              <button type="button" class="btn btn-ghost" id="quartal-abbrechen">Abbrechen</button>
+            </div>
+            <div class="meldung" id="quartal-meldung" role="alert" aria-live="assertive"></div>
           </form>
         </div>
       </div>
@@ -763,6 +822,91 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
 
   container.querySelector('#monat-form').addEventListener('submit', e => { e.preventDefault(); monatExport(false); });
   container.querySelector('#monat-mail-btn').addEventListener('click', () => monatExport(true));
+
+  // Quartals-Export-Dialog
+  const quartalDialog = container.querySelector('#quartal-dialog');
+  const quartalStatEl = container.querySelector('#quartal-statistik');
+
+  async function quartalStatLaden() {
+    const sel = container.querySelector('#export-quartal');
+    if (!sel.value) return;
+    const [jahr, q] = sel.value.split('-');
+    const eKurs = container.querySelector('#quartal-kurs').value;
+    quartalStatEl.textContent = 'Wird geladen …';
+    const res = await onExportQuartal(parseInt(q, 10), jahr, eKurs, '');
+    if (!quartalStatEl.isConnected) return;
+    if (!res.ok) { quartalStatEl.textContent = res.fehler || 'Nicht verfügbar.'; return; }
+    const p = res.daten?.personen ?? 0, a = res.daten?.anwesenheiten ?? 0;
+    quartalStatEl.innerHTML = `<strong>${p}</strong> Personen · ${a} Anwesenheiten (${esc(sel.selectedOptions[0].text)})`;
+  }
+
+  container.querySelector('#btn-quartal-toggle').addEventListener('click', () => {
+    quartalDialog.hidden = !quartalDialog.hidden;
+    if (!quartalDialog.hidden) quartalStatLaden();
+  });
+  container.querySelector('#quartal-abbrechen').addEventListener('click', () => { quartalDialog.hidden = true; });
+  container.querySelector('#export-quartal').addEventListener('change', quartalStatLaden);
+  container.querySelector('#quartal-kurs').addEventListener('change', quartalStatLaden);
+
+  async function quartalExport(perMail) {
+    const sel     = container.querySelector('#export-quartal');
+    const [jahr, q] = (sel.value || '').split('-');
+    const eKurs   = container.querySelector('#quartal-kurs').value;
+    const empf    = container.querySelector('#quartal-empf').value.trim();
+    const dlBtn   = container.querySelector('#quartal-download-btn');
+    const maiBtn  = container.querySelector('#quartal-mail-btn');
+    const meldung = container.querySelector('#quartal-meldung');
+
+    meldung.className = 'meldung';
+    meldung.textContent = '';
+    if (!sel.value) {
+      meldung.className = 'meldung fehler';
+      meldung.textContent = 'Bitte ein Quartal auswählen.';
+      return;
+    }
+    if (perMail && !empf) {
+      meldung.className = 'meldung fehler';
+      meldung.textContent = 'Für den Mail-Versand bitte eine E-Mail-Adresse eingeben.';
+      return;
+    }
+
+    dlBtn.disabled = true; maiBtn.disabled = true;
+    const aktiverBtn = perMail ? maiBtn : dlBtn;
+    const altText = aktiverBtn.textContent;
+    aktiverBtn.textContent = perMail ? 'Wird gesendet …' : 'Wird erstellt …';
+
+    const res = await onExportQuartal(parseInt(q, 10), jahr, eKurs, perMail ? empf : '');
+
+    if (aktiverBtn.isConnected) {
+      dlBtn.disabled = false; maiBtn.disabled = false;
+      aktiverBtn.textContent = altText;
+    }
+    if (!res.ok) {
+      meldung.className = 'meldung fehler';
+      meldung.textContent = res.fehler || 'Export fehlgeschlagen.';
+      return;
+    }
+
+    const personen = res.daten?.personen ?? 0;
+    if (!perMail) {
+      const blob = new Blob([res.daten.csv], { type: 'text/csv;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = res.daten.dateiname || ('stepnova_Q' + q + '-' + jahr + '.csv');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    meldung.className = 'meldung erfolg';
+    meldung.textContent = perMail
+      ? `Quartals-Export an ${empf} gesendet (${personen} Personen).`
+      : `Download gestartet: ${personen} Personen (${sel.selectedOptions[0].text}).`;
+  }
+
+  container.querySelector('#quartal-form').addEventListener('submit', e => { e.preventDefault(); quartalExport(false); });
+  container.querySelector('#quartal-mail-btn').addEventListener('click', () => quartalExport(true));
 }
 
 // ── Lade-Indikator ────────────────────────────────────────────────────────────

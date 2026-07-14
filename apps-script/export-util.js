@@ -36,6 +36,62 @@ function istImMonat(datumDe, monatIso) {
   return d[2] === m[0] && d[1] === m[1];
 }
 
+// "dd.MM.yyyy" -> "YYYY-MM" (leer bei ungültigem Datum)
+function monatVonDatum(datumDe) {
+  const d = String(datumDe == null ? '' : datumDe).trim().split('.');
+  if (d.length !== 3) return '';
+  return d[2] + '-' + d[1];
+}
+
+// Liegt "dd.MM.yyyy" im Monatsbereich [vonMonat, bisMonat] (jeweils "YYYY-MM")?
+// Vertauschte Grenzen (von > bis) werden toleriert.
+function istImZeitraum(datumDe, vonMonat, bisMonat) {
+  const m = monatVonDatum(datumDe);
+  if (!m) return false;
+  if (!/^\d{4}-\d{2}$/.test(String(vonMonat || '')) || !/^\d{4}-\d{2}$/.test(String(bisMonat || ''))) return false;
+  let von = String(vonMonat), bis = String(bisMonat);
+  if (von > bis) { const t = von; von = bis; bis = t; }
+  return m >= von && m <= bis;                 // Stringvergleich ist bei YYYY-MM korrekt
+}
+
+// Spalten des Quartals-Exports (pro Person + Kurs zusammengefasst).
+var QUARTAL_SPALTEN = ['Nachname', 'Vorname', 'Kurs-Name', 'Kurs-ID', 'Anzahl Besuche', 'Erster Besuch', 'Letzter Besuch'];
+
+// Einträge pro Person UND Kurs zusammenfassen (dedupliziert): eine Zeile je
+// (Nachname, Vorname, Kurs-ID) mit Besuchszahl + erstem/letztem Besuch.
+// Erster/letzter Besuch über den ISO-Timestamp bestimmt (sortiert korrekt).
+function fasseProPersonZusammen(eintraege) {
+  function cmp(a, b) { return a < b ? -1 : (a > b ? 1 : 0); }
+  const map = {};
+  (eintraege || []).forEach(e => {
+    if (!e) return;
+    const vor  = String(e['Vorname']  == null ? '' : e['Vorname']).trim();
+    const nach = String(e['Nachname'] == null ? '' : e['Nachname']).trim();
+    const kid  = String(e['Kurs-ID']  == null ? '' : e['Kurs-ID']).trim();
+    const datum = String(e['Datum'] == null ? '' : e['Datum']);
+    const ts    = String(e['Timestamp'] == null ? '' : e['Timestamp']);
+    const key = (nach + '|' + vor + '|' + kid).toLowerCase();
+    if (!map[key]) {
+      map[key] = {
+        'Nachname': nach, 'Vorname': vor,
+        'Kurs-Name': String(e['Kurs-Name'] == null ? kid : e['Kurs-Name']), 'Kurs-ID': kid,
+        'Anzahl Besuche': 0, 'Erster Besuch': datum, 'Letzter Besuch': datum,
+        _minTs: ts, _maxTs: ts
+      };
+    }
+    const g = map[key];
+    g['Anzahl Besuche']++;
+    if (ts && (g._minTs === '' || ts < g._minTs)) { g._minTs = ts; g['Erster Besuch']  = datum; }
+    if (ts && (g._maxTs === '' || ts > g._maxTs)) { g._maxTs = ts; g['Letzter Besuch'] = datum; }
+  });
+  const arr = Object.keys(map).map(k => map[k]);
+  arr.sort((a, b) =>
+    cmp(a['Kurs-Name'].toLowerCase(), b['Kurs-Name'].toLowerCase()) ||
+    cmp(a['Nachname'].toLowerCase(),  b['Nachname'].toLowerCase())  ||
+    cmp(a['Vorname'].toLowerCase(),   b['Vorname'].toLowerCase()));
+  return arr;
+}
+
 // Einträge nach Kurs zählen -> [{kursId, kursName, anzahl}], absteigend sortiert.
 function zaehleProKurs(eintraege) {
   const map = {};
@@ -58,5 +114,6 @@ function monatDateiname(monatIso, kursId) {
 
 // Node-Export (in Apps Script ist `module` undefined -> übersprungen)
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { EXPORT_SPALTEN, csvFeld, baueCsv, istImMonat, monatDateiname, zaehleProKurs };
+  module.exports = { EXPORT_SPALTEN, QUARTAL_SPALTEN, csvFeld, baueCsv, istImMonat,
+    monatVonDatum, istImZeitraum, monatDateiname, zaehleProKurs, fasseProPersonZusammen };
 }

@@ -3,7 +3,8 @@
  * Läuft ohne Framework: `node test/export.test.js`.
  */
 const assert = require('assert');
-const { csvFeld, baueCsv, istImMonat, monatDateiname, zaehleProKurs } = require('../apps-script/export-util.js');
+const { csvFeld, baueCsv, istImMonat, monatDateiname, zaehleProKurs,
+        monatVonDatum, istImZeitraum, fasseProPersonZusammen, QUARTAL_SPALTEN } = require('../apps-script/export-util.js');
 
 let bestanden = 0, fehlgeschlagen = 0;
 function test(name, fn) {
@@ -79,6 +80,60 @@ test('absteigend sortiert', () => {
 });
 test('fehlende Kurs-ID -> unbekannt', () => {
   assert.strictEqual(zaehleProKurs([{}])[0].kursId, 'unbekannt');
+});
+
+console.log('monatVonDatum / istImZeitraum');
+test('monatVonDatum', () => {
+  assert.strictEqual(monatVonDatum('13.07.2026'), '2026-07');
+  assert.strictEqual(monatVonDatum('2026-07-13'), '');
+});
+test('istImZeitraum im Bereich + Grenzen', () => {
+  assert.strictEqual(istImZeitraum('13.07.2026', '2026-05', '2026-07'), true);
+  assert.strictEqual(istImZeitraum('01.05.2026', '2026-05', '2026-07'), true);
+  assert.strictEqual(istImZeitraum('30.09.2026', '2026-07', '2026-09'), true);
+});
+test('istImZeitraum außerhalb', () => {
+  assert.strictEqual(istImZeitraum('13.04.2026', '2026-05', '2026-07'), false);
+  assert.strictEqual(istImZeitraum('13.08.2026', '2026-05', '2026-07'), false);
+});
+test('istImZeitraum vertauschte Grenzen toleriert', () => {
+  assert.strictEqual(istImZeitraum('13.06.2026', '2026-07', '2026-05'), true);
+});
+test('istImZeitraum ungültig -> false', () => {
+  assert.strictEqual(istImZeitraum('', '2026-05', '2026-07'), false);
+  assert.strictEqual(istImZeitraum('13.06.2026', 'quatsch', '2026-07'), false);
+});
+
+console.log('fasseProPersonZusammen');
+const Q_EINTR = [
+  { Vorname:'Ute', Nachname:'Beck', 'Kurs-ID':'naeh', 'Kurs-Name':'Näh Kurs', Datum:'02.07.2026', Timestamp:'2026-07-02T09:15:00Z' },
+  { Vorname:'Ute', Nachname:'Beck', 'Kurs-ID':'naeh', 'Kurs-Name':'Näh Kurs', Datum:'16.07.2026', Timestamp:'2026-07-16T09:20:00Z' },
+  { Vorname:'Ute', Nachname:'Beck', 'Kurs-ID':'naeh', 'Kurs-Name':'Näh Kurs', Datum:'09.07.2026', Timestamp:'2026-07-09T09:12:00Z' },
+  { Vorname:'Jessica', Nachname:'Widdig', 'Kurs-ID':'naeh', 'Kurs-Name':'Näh Kurs', Datum:'15.07.2026', Timestamp:'2026-07-15T10:00:00Z' },
+  { Vorname:'Ute', Nachname:'Beck', 'Kurs-ID':'deutsch', 'Kurs-Name':'Deutsch A2', Datum:'20.07.2026', Timestamp:'2026-07-20T14:00:00Z' }
+];
+test('dedupliziert pro Person + Kurs', () => {
+  assert.strictEqual(fasseProPersonZusammen(Q_EINTR).length, 3); // Beck/naeh, Widdig/naeh, Beck/deutsch
+});
+test('Anzahl Besuche stimmt', () => {
+  const beckNaeh = fasseProPersonZusammen(Q_EINTR).find(r => r.Nachname==='Beck' && r['Kurs-ID']==='naeh');
+  assert.strictEqual(beckNaeh['Anzahl Besuche'], 3);
+});
+test('erster/letzter Besuch via Timestamp (Reihenfolge egal)', () => {
+  const beckNaeh = fasseProPersonZusammen(Q_EINTR).find(r => r.Nachname==='Beck' && r['Kurs-ID']==='naeh');
+  assert.strictEqual(beckNaeh['Erster Besuch'], '02.07.2026');
+  assert.strictEqual(beckNaeh['Letzter Besuch'], '16.07.2026');
+});
+test('sortiert nach Kurs-Name, dann Nachname', () => {
+  const r = fasseProPersonZusammen(Q_EINTR);
+  assert.strictEqual(r[0]['Kurs-Name'], 'Deutsch A2');       // Deutsch vor Näh
+  assert.strictEqual(r[1].Nachname, 'Beck');                 // in Näh: Beck vor Widdig
+  assert.strictEqual(r[2].Nachname, 'Widdig');
+});
+test('leere Liste -> []', () => assert.deepStrictEqual(fasseProPersonZusammen([]), []));
+test('als CSV mit QUARTAL_SPALTEN', () => {
+  const csv = baueCsv(fasseProPersonZusammen(Q_EINTR), QUARTAL_SPALTEN);
+  assert.strictEqual(csv.slice(1).split('\r\n')[0], 'Nachname;Vorname;Kurs-Name;Kurs-ID;Anzahl Besuche;Erster Besuch;Letzter Besuch');
 });
 
 console.log('\n' + bestanden + ' bestanden, ' + fehlgeschlagen + ' fehlgeschlagen');

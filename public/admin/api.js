@@ -125,3 +125,8 @@ async function monatExportieren(monat, kursId, empfaenger) {
 async function monatStatistikLaden(monat, kursId) {
   return apiAufruf('monatStatistik', { monat: monat || '', kursId: kursId || '' });
 }
+
+// Quartals-Export (3 Monate, pro Person + Kurs zusammengefasst) – CSV zurück; optional per Mail.
+async function quartalExportieren(quartal, jahr, kursId, empfaenger) {
+  return apiAufruf('exportQuartal', { quartal: quartal, jahr: jahr, kursId: kursId || '', empfaenger: empfaenger || '' });
+}

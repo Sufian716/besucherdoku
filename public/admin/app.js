@@ -165,6 +165,11 @@ async function zeigeHeute(container, filterDatum, filterKurs) {
       const res = await monatStatistikLaden(monat, kId);
       if (res.nichtAutorisiert) { zeigeLogin(container); }
       return res;
+    },
+    async (quartal, jahr, kId, empfaenger) => {
+      const res = await quartalExportieren(quartal, jahr, kId, empfaenger);
+      if (res.nichtAutorisiert) { zeigeLogin(container); }
+      return res;
     }
   );
 }
