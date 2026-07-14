@@ -545,7 +545,7 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
 
       <!-- Monats-Export -->
       <div class="mail-export-leiste">
-        <button class="btn btn-primär" id="btn-monat-toggle" type="button">📅 Monats-Export</button>
+        <button class="btn btn-primär" id="btn-monat-toggle" type="button">Monats-Export</button>
         <div id="monat-dialog" class="mail-dialog" hidden>
           <form id="monat-form">
             <div class="mail-felder">
@@ -581,7 +581,7 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
 
       <!-- Quartals-Export (für Stepnova) -->
       <div class="mail-export-leiste">
-        <button class="btn btn-primär" id="btn-quartal-toggle" type="button">🗓 Quartals-Export (für Stepnova)</button>
+        <button class="btn btn-primär" id="btn-quartal-toggle" type="button">Quartals-Export (für Stepnova)</button>
         <div id="quartal-dialog" class="mail-dialog" hidden>
           <form id="quartal-form">
             <p class="hinweis">Eine Zeile pro Person und Kurs – auch bei mehrfacher Anwesenheit. Ideal zum Übertragen nach Stepnova.</p>
@@ -694,7 +694,7 @@ function renderHeute(container, daten, kurse, onZurueck, onFilter, onMail, onExp
     if (loeschen) {
       const kursTxt = (mailKurs || kursId) ? ` im Kurs „${mailKurs || kursId}"` : '';
       const bestaetigt = confirm(
-        '⚠️ Unwiderruflich löschen?\n\n' +
+        'Unwiderruflich löschen?\n\n' +
         `Die Anwesenheitseinträge vom ${datum}${kursTxt} werden nach dem Versand DAUERHAFT ` +
         'aus der Tabelle gelöscht und können nicht wiederhergestellt werden.\n\n' +
         'Tipp: vorher lieber den Monats-Export sichern.\n\n' +
